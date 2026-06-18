@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hold Your Ground</title>
+  <link rel="stylesheet" href="/holdyourground/style.css">
+</head>
+<body style="margin:0;overflow:hidden;background:#0a0a0f">
+  <div id="wrapper">
+    <canvas id="canvas"></canvas>
+
+    <div id="menu" class="overlay">
+      <h1>Hold Your Ground</h1>
+      <p class="subtitle">Last circle standing wins</p>
+      <input type="text" id="nameInput" placeholder="Enter your name" maxlength="16" autofocus>
+      <button id="joinBtn">Play</button>
+      <p id="errorMsg" class="error"></p>
+    </div>
+
+    <div id="eliminated" class="overlay hidden">
+      <h1>Eliminated!</h1>
+      <p id="elimKills">You were pushed out.</p>
+      <button id="respawnBtn">Respawn</button>
+    </div>
+
+    <div id="hud" class="hud hidden">
+      <div class="lb-title">Leaderboard</div>
+      <div id="lbEntries"></div>
+    </div>
+
+    <div id="hotbarInventory" class="hotbar hidden"></div>
+  </div>
+
+  <script src="/holdyourground/shared/data.js"></script>
+  <script src="https://server.iolegends.com/socket.io/socket.io.js"></script>
+  <script src="/holdyourground/client/main.js"></script>
+  <script src="/holdyourground/client/camera.js"></script>
+  <script src="/holdyourground/client/animation.js"></script>
+  <script src="/holdyourground/client/draw.js"></script>
+  <script src="/holdyourground/client/effects.js"></script>
+  <script src="/holdyourground/client/input.js"></script>
+  <script src="/holdyourground/client/render.js"></script>
+  <script src="/holdyourground/client/network.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Lilita+One&display=swap" rel="stylesheet">
+</body>
+</html>

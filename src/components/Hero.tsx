@@ -59,10 +59,10 @@ export default function Hero() {
             style={{ animationDelay: "260ms" }}
           >
             <a
-              href="#playtest"
+              href="/holdyourground"
               className="group inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-6 py-3.5 text-base font-bold text-black transition-all hover:shadow-glow-lg hover:bg-brand-bright"
             >
-              Join the playtest
+              Play Now
               <svg className="h-4 w-4 transition-transform group-hover:translate-x-1" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>

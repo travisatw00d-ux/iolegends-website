@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 const NAV_LINKS = [
   { label: "How it plays", href: "#how" },
   { label: "The Horde", href: "#horde" },
-  { label: "Playtest", href: "#playtest" },
+  { label: "Play Now", href: "/holdyourground" },
 ];
 
 export default function Navbar() {
@@ -66,10 +66,10 @@ export default function Navbar() {
 
         <div className="hidden md:block">
           <a
-            href="#playtest"
+            href="/holdyourground"
             className="group relative inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-bold text-black transition-all hover:shadow-glow"
           >
-            Join playtest
+            Play Now
             <svg
               className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
               viewBox="0 0 16 16"
@@ -134,11 +134,11 @@ export default function Navbar() {
           ))}
           <li className="pt-2">
             <a
-              href="#playtest"
+              href="/holdyourground"
               onClick={() => setOpen(false)}
               className="flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-3 text-base font-bold text-black"
             >
-              Join playtest
+              Play Now
             </a>
           </li>
         </ul>
