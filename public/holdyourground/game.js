@@ -6,7 +6,7 @@ const VH = 600;
 canvas.width = VW;
 canvas.height = VH;
 
-let socket = io('wss://server.iolegends.com');
+let socket = io('wss://server.iolegends.com', { transports: ['websocket'] });
 
 let myId = null;
 let worldW = 0;
@@ -27,7 +27,6 @@ let debugHitbox = false;
 let dmgNumbers = [];
 let mergeSmokes = [];
 let serverLevel = 0;
-var lastFrameMs = 0;
 
 const swordImg = new Image();
 swordImg.src = '/images/woodensword.png';
@@ -297,12 +296,8 @@ function startRender() {
     }
   }, 50);
 
-  function loop(time) {
+  function loop() {
     if (screen === 'playing') {
-      if (lastFrameMs && time - lastFrameMs > 25) {
-        console.log('long frame ' + (time - lastFrameMs).toFixed(1) + 'ms');
-      }
-      lastFrameMs = time;
       render();
       animFrame = requestAnimationFrame(loop);
     }
