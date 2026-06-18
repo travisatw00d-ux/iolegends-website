@@ -6,7 +6,7 @@ const VH = 600;
 canvas.width = VW;
 canvas.height = VH;
 
-let socket = io('wss://server.iolegends.com');
+let socket = io('wss://server.iolegends.com', { transports: ['websocket'] });
 
 let myId = null;
 let worldW = 0;
@@ -27,6 +27,8 @@ let debugHitbox = false;
 let dmgNumbers = [];
 let mergeSmokes = [];
 let serverLevel = 0;
+let stateArrival = 0;
+const TICK_MS = 33;
 
 const swordImg = new Image();
 swordImg.src = '/images/woodensword.png';
@@ -134,8 +136,16 @@ socket.on('joined', () => {
 });
 
 socket.on('state', (data) => {
+  for (const z of data.zombies) {
+    const old = zombies.find(o => o.id === z.id);
+    z.prevX = old ? old.x : z.x;
+    z.prevY = old ? old.y : z.y;
+  }
   const map = {};
   for (const p of data.players) {
+    const old = players[p.id];
+    p.prevX = old ? old.x : p.x;
+    p.prevY = old ? old.y : p.y;
     map[p.id] = p;
   }
   players = map;
@@ -143,6 +153,7 @@ socket.on('state', (data) => {
   worldW = data.arenaWidth;
   worldH = data.arenaHeight;
   serverLevel = data.serverLevel || 0;
+  stateArrival = performance.now();
   updateLeaderboard();
   updateHotbar();
 });
@@ -519,10 +530,14 @@ function render() {
     ctx.drawImage(backgroundCanvas, cam.x, cam.y, VW, VH, 0, 0, VW, VH);
   }
 
+  const interp = Math.min(1, (performance.now() - stateArrival) / TICK_MS);
+
   // draw zombies
   for (const z of zombies) {
     if (!z.alive) continue;
-    const szx = z.x - cam.x, szy = z.y - cam.y;
+    const izx = z.prevX != null ? z.prevX + (z.x - z.prevX) * interp : z.x;
+    const izy = z.prevY != null ? z.prevY + (z.y - z.prevY) * interp : z.y;
+    const szx = izx - cam.x, szy = izy - cam.y;
     if (szx < -40 || szx > VW + 40 || szy < -40 || szy > VH + 40) continue;
 
     // facing angle from server (computed from target direction)
@@ -559,8 +574,12 @@ function render() {
     const p = players[id];
     if (!p.alive) continue;
 
-    const sx = p.x - cam.x;
-    const sy = p.y - cam.y;
+    let sx = p.x - cam.x;
+    let sy = p.y - cam.y;
+    if (id !== myId) {
+      sx = (p.prevX != null ? p.prevX + (p.x - p.prevX) * interp : p.x) - cam.x;
+      sy = (p.prevY != null ? p.prevY + (p.y - p.prevY) * interp : p.y) - cam.y;
+    }
 
     if (sx < -40 || sx > VW + 40 || sy < -40 || sy > VH + 40) continue;
 
