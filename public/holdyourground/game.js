@@ -27,6 +27,7 @@ let debugHitbox = false;
 let dmgNumbers = [];
 let mergeSmokes = [];
 let serverLevel = 0;
+var lastFrameMs = 0;
 
 const swordImg = new Image();
 swordImg.src = '/images/woodensword.png';
@@ -296,8 +297,12 @@ function startRender() {
     }
   }, 50);
 
-  function loop() {
+  function loop(time) {
     if (screen === 'playing') {
+      if (lastFrameMs && time - lastFrameMs > 25) {
+        console.log('long frame ' + (time - lastFrameMs).toFixed(1) + 'ms');
+      }
+      lastFrameMs = time;
       render();
       animFrame = requestAnimationFrame(loop);
     }
