@@ -134,37 +134,12 @@ socket.on('joined', () => {
 });
 
 socket.on('state', (data) => {
-  // Update players in-place (no new map allocation)
+  const map = {};
   for (const p of data.players) {
-    if (players[p.id]) {
-      Object.assign(players[p.id], p);
-    } else {
-      players[p.id] = p;
-    }
+    map[p.id] = p;
   }
-  for (const id in players) {
-    if (!data.players.find(p => p.id === id)) delete players[id];
-  }
-
-  // Update zombies in-place (no new array allocation)
-  var changed = {};
-  for (var zi = 0; zi < data.zombies.length; zi++) {
-    var nz = data.zombies[zi];
-    changed[nz.id] = true;
-    var found = false;
-    for (var oi = 0; oi < zombies.length; oi++) {
-      if (zombies[oi].id === nz.id) {
-        Object.assign(zombies[oi], nz);
-        found = true;
-        break;
-      }
-    }
-    if (!found) zombies.push(nz);
-  }
-  for (var oi = zombies.length - 1; oi >= 0; oi--) {
-    if (!changed[zombies[oi].id]) zombies.splice(oi, 1);
-  }
-
+  players = map;
+  zombies = data.zombies || [];
   worldW = data.arenaWidth;
   worldH = data.arenaHeight;
   serverLevel = data.serverLevel || 0;
