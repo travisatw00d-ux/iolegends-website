@@ -27,6 +27,7 @@ let localAnim = null;
 let debugHitbox = false;
 let dmgNumbers = [];
 let mergeSmokes = [];
+let mergeCount = 0, mergeCountAt = 0, mergeRate = 0;
 let serverLevel = 0;
 let showDiag = false;
 let fpsFrames = 0, fpsLast = 0, fpsValue = 0, frameTimeMs = 0;
@@ -271,6 +272,7 @@ socket.on('hitConfirm', ({ dmg, x, y }) => {
 
 socket.on('zombieMerge', ({ x, y }) => {
   mergeSmokes.push({ x, y, timer: 1.0 });
+  mergeCount++;
 });
 
 socket.on('attackStart', ({ lockedAngle }) => {
@@ -428,7 +430,7 @@ function drawDiag() {
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  ctx.fillRect(6, 86, 200, 120);
+  ctx.fillRect(6, 86, 200, 132);
   const ftCol = frameTimeMs > 20 ? '#ff9' : '#9fe';
   ctx.fillStyle = ftCol;
   ctx.fillText(`fps ${fpsValue}  frame ${frameTimeMs.toFixed(1)} (max ${maxFrameMs.toFixed(0)})`, 10, 90);
@@ -440,10 +442,14 @@ function drawDiag() {
   ctx.fillText(`rafgap 17 (max ${Math.round(maxFrameGap)})`, 10, 138);
   ctx.fillStyle = lastServerTickMs < 20 ? '#9f9' : lastServerTickMs < 50 ? '#fe9' : '#f99';
   ctx.fillText(`svr ${lastServerTickMs.toFixed(1)}ms/tick`, 10, 154);
+  const mNow = performance.now();
+  if (mNow - mergeCountAt >= 1000) { mergeRate = mergeCount; mergeCount = 0; mergeCountAt = mNow; }
   ctx.fillStyle = '#9fe';
   ctx.fillText(`pkt ${(lastPacketBytes / 1024).toFixed(1)}KB`, 10, 170);
+  ctx.fillStyle = mergeRate > 30 ? '#f99' : mergeRate > 8 ? '#fe9' : '#9f9';
+  ctx.fillText(`merges ${mergeRate}/s`, 10, 186);
   ctx.fillStyle = 'rgba(159,238,238,0.6)';
-  ctx.fillText('[H] cycle debug', 10, 186);
+  ctx.fillText('[H] cycle debug', 10, 202);
   ctx.restore();
 }
 
