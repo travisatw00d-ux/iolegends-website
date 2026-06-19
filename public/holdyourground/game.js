@@ -36,6 +36,7 @@ let lastFrameMs = 0, maxFrameGap = 0, maxFrameGapAt = 0;
 let lastPacketBytes = 0;
 let diagPingInterval = null;
 let rT0 = 0;
+let lastServerTickMs = 0;
 let lbSig = '';
 let hotSig = '';
 
@@ -238,11 +239,13 @@ socket.on('playerLeft', (id) => {
   delete playerMeta[id];
 });
 
-socket.on('diagPong', (t) => {
+socket.on('diagPong', (msg) => {
+  const t = typeof msg === 'number' ? msg : msg.t;
   ping = Date.now() - t;
   const now = performance.now();
   if (now - maxPingAt > 2000) { maxPing = ping; maxPingAt = now; }
   else if (ping > maxPing) maxPing = ping;
+  if (typeof msg === 'object') lastServerTickMs = msg.tickMs || 0;
 });
 diagPingInterval = setInterval(() => { if (socket.connected) socket.emit('diagPing', Date.now()); }, 250);
 
@@ -425,7 +428,7 @@ function drawDiag() {
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  ctx.fillRect(6, 86, 200, 102);
+  ctx.fillRect(6, 86, 200, 120);
   const ftCol = frameTimeMs > 20 ? '#ff9' : '#9fe';
   ctx.fillStyle = ftCol;
   ctx.fillText(`fps ${fpsValue}  frame ${frameTimeMs.toFixed(1)} (max ${maxFrameMs.toFixed(0)})`, 10, 90);
@@ -435,10 +438,12 @@ function drawDiag() {
   ctx.fillText(`arrival ${Math.round(lastArrival)} (max ${Math.round(maxArrival)})`, 10, 122);
   ctx.fillStyle = maxFrameGap < 25 ? '#9f9' : maxFrameGap < 45 ? '#fe9' : '#f99';
   ctx.fillText(`rafgap 17 (max ${Math.round(maxFrameGap)})`, 10, 138);
+  ctx.fillStyle = lastServerTickMs < 20 ? '#9f9' : lastServerTickMs < 50 ? '#fe9' : '#f99';
+  ctx.fillText(`svr ${lastServerTickMs.toFixed(1)}ms/tick`, 10, 154);
   ctx.fillStyle = '#9fe';
-  ctx.fillText(`pkt ${(lastPacketBytes / 1024).toFixed(1)}KB`, 10, 154);
+  ctx.fillText(`pkt ${(lastPacketBytes / 1024).toFixed(1)}KB`, 10, 170);
   ctx.fillStyle = 'rgba(159,238,238,0.6)';
-  ctx.fillText('[H] cycle debug', 10, 170);
+  ctx.fillText('[H] cycle debug', 10, 186);
   ctx.restore();
 }
 
