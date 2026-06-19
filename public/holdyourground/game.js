@@ -36,6 +36,10 @@ let lastFrameMs = 0, maxFrameGap = 0, maxFrameGapAt = 0;
 let lastPacketBytes = 0;
 let diagPingInterval = null;
 let rT0 = 0;
+let lbSig = '';
+let hotSig = '';
+
+const textDecoder = new TextDecoder();
 
 const swordImg = new Image();
 swordImg.src = '/images/woodensword.png';
@@ -141,7 +145,7 @@ function decodeStateBuffer(buf) {
   const players = [];
   for (let i = 0; i < playerCount; i++) {
     const idLen = dv.getUint8(o); o += 1;
-    const id = new TextDecoder().decode(buf.subarray(o, o + idLen)); o += idLen;
+    const id = textDecoder.decode(buf.subarray(o, o + idLen)); o += idLen;
     const x = dv.getFloat32(o, true); o += 4;
     const y = dv.getFloat32(o, true); o += 4;
     const health = dv.getInt16(o, true); o += 2;
@@ -337,6 +341,10 @@ function getInput() {
 
 function updateLeaderboard() {
   const sorted = Object.values(players).sort((a, b) => b.kills - a.kills);
+  let sig = '';
+  for (let i = 0; i < sorted.length; i++) sig += sorted[i].name + ':' + sorted[i].kills + '|';
+  if (sig === lbSig) return;
+  lbSig = sig;
   let html = '';
   for (let i = 0; i < sorted.length; i++) {
     const p = sorted[i];
@@ -350,7 +358,10 @@ function updateLeaderboard() {
 
 function updateHotbar() {
   const me = players[myId];
-  if (!me) { hotbarEl.innerHTML = ''; return; }
+  if (!me) { if (hotSig !== '') { hotSig = ''; hotbarEl.innerHTML = ''; } return; }
+  const sig = me.currentItem + '|' + (me.inventory ? me.inventory.join(',') : '');
+  if (sig === hotSig) return;
+  hotSig = sig;
   let html = '';
   for (let i = 0; i < me.inventory.length; i++) {
     const itemKey = me.inventory[i];
