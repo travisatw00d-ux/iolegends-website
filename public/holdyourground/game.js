@@ -135,19 +135,33 @@ function getZombieMaxHealth(lvl) {
 }
 
 function decodeStateBuffer(buf) {
-  const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  const dLen = buf.byteLength;
+  const dv = new DataView(buf.buffer, buf.byteOffset, dLen);
   let o = 0;
-  dv.getUint8(o); o += 1; // ver (unused)
+  let playerCount = 0, zombieCount = 0;
+  function need(n, label) {
+    if (o + n > dLen) {
+      console.error(`decodeStateBuffer: out of bounds at offset ${o} need ${n} bytes for "${label}", bufLen=${dLen}, playerCount=${playerCount}, zombieCount=${zombieCount}`);
+      return false;
+    }
+    return true;
+  }
+  if (!need(18, 'header')) return emptyState();
+  dv.getUint8(o); o += 1;
+  dv.getFloat64(o, true); o += 8; // emitTime (server broadcast timestamp, unused by client)
   const arenaW = dv.getUint16(o, true); o += 2;
   const arenaH = dv.getUint16(o, true); o += 2;
   const serverLevel = dv.getUint16(o, true); o += 2;
-  const playerCount = dv.getUint8(o); o += 1;
-  const zombieCount = dv.getUint16(o, true); o += 2;
+  playerCount = dv.getUint8(o); o += 1;
+  zombieCount = dv.getUint16(o, true); o += 2;
 
   const players = [];
   for (let i = 0; i < playerCount; i++) {
+    if (!need(1, 'player.idLen')) return emptyState();
     const idLen = dv.getUint8(o); o += 1;
+    if (!need(idLen, 'player.id')) return emptyState();
     const id = textDecoder.decode(buf.subarray(o, o + idLen)); o += idLen;
+    if (!need(31, 'player.fields')) return emptyState();
     const x = dv.getFloat32(o, true); o += 4;
     const y = dv.getFloat32(o, true); o += 4;
     const health = dv.getInt16(o, true); o += 2;
@@ -163,6 +177,7 @@ function decodeStateBuffer(buf) {
 
   const zombies = [];
   for (let i = 0; i < zombieCount; i++) {
+    if (!need(20, 'zombie.fields')) return emptyState();
     const id = dv.getInt32(o, true); o += 4;
     const x = dv.getFloat32(o, true); o += 4;
     const y = dv.getFloat32(o, true); o += 4;
@@ -174,6 +189,10 @@ function decodeStateBuffer(buf) {
   }
 
   return { arenaWidth: arenaW, arenaHeight: arenaH, serverLevel, players, zombies };
+}
+
+function emptyState() {
+  return { arenaWidth: 0, arenaHeight: 0, serverLevel: 0, players: [], zombies: [] };
 }
 
 // --- Socket events ---
