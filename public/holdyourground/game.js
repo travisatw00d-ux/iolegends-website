@@ -12,6 +12,7 @@ let myId = null;
 let worldW = 0;
 let worldH = 0;
 let players = {};
+let playerMeta = {};
 let zombies = [];
 let screen = 'menu';
 let backgroundCanvas = null;
@@ -114,6 +115,53 @@ function generateBackground(w, h) {
   return bc;
 }
 
+function getZombieMaxHealth(lvl) {
+  if (lvl <= 5) return 4 + lvl;
+  return 12 + lvl;
+}
+
+function decodeStateBuffer(buf) {
+  const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  let o = 0;
+  dv.getUint8(o); o += 1; // ver (unused)
+  const arenaW = dv.getUint16(o, true); o += 2;
+  const arenaH = dv.getUint16(o, true); o += 2;
+  const serverLevel = dv.getUint16(o, true); o += 2;
+  const playerCount = dv.getUint8(o); o += 1;
+  const zombieCount = dv.getUint16(o, true); o += 2;
+
+  const players = [];
+  for (let i = 0; i < playerCount; i++) {
+    const idLen = dv.getUint8(o); o += 1;
+    const id = new TextDecoder().decode(buf.subarray(o, o + idLen)); o += idLen;
+    const x = dv.getFloat32(o, true); o += 4;
+    const y = dv.getFloat32(o, true); o += 4;
+    const health = dv.getInt16(o, true); o += 2;
+    const alive = dv.getUint8(o); o += 1;
+    const attacking = dv.getUint8(o); o += 1;
+    const facingAngle = dv.getFloat32(o, true); o += 4;
+    const attackLockedAngle = dv.getFloat32(o, true); o += 4;
+    const attackStartTime = dv.getFloat64(o, true); o += 8;
+    const kills = dv.getInt16(o, true); o += 2;
+    const lvl = dv.getUint8(o); o += 1;
+    players.push({ id, x, y, health, alive: !!alive, attacking: !!attacking, facingAngle, attackLockedAngle, attackStartTime, kills, lvl });
+  }
+
+  const zombies = [];
+  for (let i = 0; i < zombieCount; i++) {
+    const id = dv.getInt32(o, true); o += 4;
+    const x = dv.getFloat32(o, true); o += 4;
+    const y = dv.getFloat32(o, true); o += 4;
+    const health = dv.getInt16(o, true); o += 2;
+    const headingAngle = dv.getFloat32(o, true); o += 4;
+    const lvl = dv.getUint8(o); o += 1;
+    const alive = dv.getUint8(o); o += 1;
+    zombies.push({ id, x, y, health, maxHealth: getZombieMaxHealth(lvl), headingAngle, lvl, alive: !!alive });
+  }
+
+  return { arenaWidth: arenaW, arenaHeight: arenaH, serverLevel, players, zombies };
+}
+
 // --- Socket events ---
 
 socket.on('lobbyFull', () => {
@@ -134,17 +182,38 @@ socket.on('joined', () => {
 });
 
 socket.on('state', (data) => {
-  const map = {};
-  for (const p of data.players) {
-    map[p.id] = p;
+  if (data instanceof ArrayBuffer || data instanceof Uint8Array) {
+    const buf = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
+    const decoded = decodeStateBuffer(buf);
+    const map = {};
+    for (const p of decoded.players) {
+      const meta = playerMeta[p.id];
+      p.name = meta ? meta.name : '?';
+      p.color = meta ? meta.color : '#888';
+      p.currentItem = meta ? meta.currentItem : 'wooden_sword';
+      p.inventory = meta ? meta.inventory : ['wooden_sword'];
+      p.maxHealth = meta ? meta.maxHealth : BASE_STATS.maxHealth;
+      p.speed = meta ? meta.speed : BASE_STATS.speed;
+      p.attackDmg = meta ? meta.attackDmg : BASE_STATS.attackDmg;
+      p.attackSpeed = meta ? meta.attackSpeed : BASE_STATS.attackSpeed;
+      map[p.id] = p;
+    }
+    players = map;
+    zombies = decoded.zombies;
+    worldW = decoded.arenaWidth;
+    worldH = decoded.arenaHeight;
+    serverLevel = decoded.serverLevel || 0;
   }
-  players = map;
-  zombies = data.zombies || [];
-  worldW = data.arenaWidth;
-  worldH = data.arenaHeight;
-  serverLevel = data.serverLevel || 0;
   updateLeaderboard();
   updateHotbar();
+});
+
+socket.on('playerInfo', (info) => {
+  playerMeta[info.id] = info;
+});
+
+socket.on('playerLeft', (id) => {
+  delete playerMeta[id];
 });
 
 socket.on('eliminated', ({ kills }) => {
