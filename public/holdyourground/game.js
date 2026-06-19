@@ -7,7 +7,10 @@ const VH = 600;
 canvas.width = VW;
 canvas.height = VH;
 
-let socket = io('wss://server.iolegends.com', { transports: ['websocket'] });
+const _serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? undefined
+  : 'wss://server.iolegends.com';
+let socket = io(_serverUrl, { transports: ['websocket'] });
 
 // Self-healing: poll the server's build tag; if it changed (new deploy), auto-reload
 // so this client can never get stuck on stale code.
@@ -58,7 +61,7 @@ let ping = 0;
 let maxPing = 0, maxPingAt = 0, maxFrameMs = 0, maxFrameAt = 0;
 let lastStateAt = 0, lastArrival = 0, maxArrival = 0, maxArrivalAt = 0;
 let lastEmitTime = 0, lastSrvInterval = 0, maxSrvInterval = 0, maxSrvAt = 0;
-let lastRAF = 0, maxFrameGap = 0, maxFrameGapAt = 0;
+let lastRAF = 0, lastFrameGap = 0, maxFrameGap = 0, maxFrameGapAt = 0;
 let lastPacketBytes = 0;
 let pktCounter = 0;
 let bladeHistory = null;
@@ -483,6 +486,7 @@ function startRender() {
     if (screen === 'playing') {
       if (lastRAF && ts - lastRAF < 500) {
         const gap = ts - lastRAF;
+        lastFrameGap = gap;
         if (ts - maxFrameGapAt > 2000) { maxFrameGap = gap; maxFrameGapAt = ts; }
         else if (gap > maxFrameGap) maxFrameGap = gap;
       }
@@ -962,7 +966,7 @@ function drawDiag() {
   ctx.fillStyle = maxSrvInterval < 80 ? '#9f9' : maxSrvInterval < 120 ? '#fe9' : '#f99';
   ctx.fillText(`srv ${Math.round(lastSrvInterval)} (max ${Math.round(maxSrvInterval)})`, 10, 138);
   ctx.fillStyle = maxFrameGap < 25 ? '#9f9' : maxFrameGap < 45 ? '#fe9' : '#f99';
-  ctx.fillText(`rafgap 17 (max ${Math.round(maxFrameGap)})`, 10, 154);
+  ctx.fillText(`rafgap ${Math.round(lastFrameGap)} (max ${Math.round(maxFrameGap)})`, 10, 154);
   ctx.fillStyle = '#9fe';
   ctx.fillText(`pkt ${(lastPacketBytes / 1024).toFixed(1)}KB`, 10, 170);
   ctx.fillStyle = 'rgba(159,238,238,0.6)';
