@@ -28,6 +28,14 @@ let debugHitbox = false;
 let dmgNumbers = [];
 let mergeSmokes = [];
 let serverLevel = 0;
+let showDiag = false;
+let fpsFrames = 0, fpsLast = 0, fpsValue = 0, frameTimeMs = 0;
+let ping = 0, maxPing = 0, maxPingAt = 0, maxFrameMs = 0, maxFrameAt = 0;
+let lastStateAt = 0, lastArrival = 0, maxArrival = 0, maxArrivalAt = 0;
+let lastFrameMs = 0, maxFrameGap = 0, maxFrameGapAt = 0;
+let lastPacketBytes = 0;
+let diagPingInterval = null;
+let rT0 = 0;
 
 const swordImg = new Image();
 swordImg.src = '/images/woodensword.png';
@@ -203,6 +211,16 @@ socket.on('state', (data) => {
     worldW = decoded.arenaWidth;
     worldH = decoded.arenaHeight;
     serverLevel = decoded.serverLevel || 0;
+
+    const sNow = performance.now();
+    if (lastStateAt) {
+      const delta = sNow - lastStateAt;
+      lastArrival = delta;
+      if (sNow - maxArrivalAt > 2000) { maxArrival = delta; maxArrivalAt = sNow; }
+      else if (delta > maxArrival) maxArrival = delta;
+    }
+    lastStateAt = sNow;
+    lastPacketBytes = buf.byteLength;
   }
   updateLeaderboard();
   updateHotbar();
@@ -215,6 +233,14 @@ socket.on('playerInfo', (info) => {
 socket.on('playerLeft', (id) => {
   delete playerMeta[id];
 });
+
+socket.on('diagPong', (t) => {
+  ping = Date.now() - t;
+  const now = performance.now();
+  if (now - maxPingAt > 2000) { maxPing = ping; maxPingAt = now; }
+  else if (ping > maxPing) maxPing = ping;
+});
+diagPingInterval = setInterval(() => { if (socket.connected) socket.emit('diagPing', Date.now()); }, 250);
 
 socket.on('eliminated', ({ kills }) => {
   stopRender();
@@ -273,7 +299,9 @@ document.addEventListener('keydown', (e) => {
     socket.emit('equip', { slot });
   }
   if (e.key === 'h' || e.key === 'H') {
-    debugHitbox = !debugHitbox;
+    if (!debugHitbox && !showDiag) { debugHitbox = true; showDiag = false; }
+    else if (debugHitbox && !showDiag) { debugHitbox = false; showDiag = true; }
+    else { debugHitbox = false; showDiag = false; }
   }
 });
 
@@ -377,6 +405,30 @@ function startRender() {
 function stopRender() {
   if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
   if (inputInterval) { clearInterval(inputInterval); inputInterval = null; }
+}
+
+function drawDiag() {
+  if (!showDiag) return;
+  ctx.save();
+  ctx.font = '11px monospace';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(6, 86, 200, 102);
+  const ftCol = frameTimeMs > 20 ? '#ff9' : '#9fe';
+  ctx.fillStyle = ftCol;
+  ctx.fillText(`fps ${fpsValue}  frame ${frameTimeMs.toFixed(1)} (max ${maxFrameMs.toFixed(0)})`, 10, 90);
+  ctx.fillStyle = ping < 80 ? '#9f9' : ping < 150 ? '#fe9' : '#f99';
+  ctx.fillText(`ping ${ping}ms (max ${maxPing}ms)`, 10, 106);
+  ctx.fillStyle = maxArrival < 100 ? '#9f9' : maxArrival < 160 ? '#fe9' : '#f99';
+  ctx.fillText(`arrival ${Math.round(lastArrival)} (max ${Math.round(maxArrival)})`, 10, 122);
+  ctx.fillStyle = maxFrameGap < 25 ? '#9f9' : maxFrameGap < 45 ? '#fe9' : '#f99';
+  ctx.fillText(`rafgap 17 (max ${Math.round(maxFrameGap)})`, 10, 138);
+  ctx.fillStyle = '#9fe';
+  ctx.fillText(`pkt ${(lastPacketBytes / 1024).toFixed(1)}KB`, 10, 154);
+  ctx.fillStyle = 'rgba(159,238,238,0.6)';
+  ctx.fillText('[H] cycle debug', 10, 170);
+  ctx.restore();
 }
 
 // --- Drawing helpers ---
@@ -559,6 +611,7 @@ function drawSword(ctx, p, sx, sy) {
 }
 
 function render() {
+  rT0 = performance.now();
   ctx.clearRect(0, 0, VW, VH);
 
   const cam = getCamera();
@@ -675,7 +728,7 @@ function render() {
     if (debugHitbox) {
       ctx.fillStyle = 'rgba(255,200,0,0.8)';
       ctx.font = 'bold 12px "Segoe UI", system-ui, sans-serif';
-      ctx.fillText('HITBOX DEBUG ON [H to toggle]', 10, 52);
+      ctx.fillText('HITBOX DEBUG ON [H] cycle debug', 10, 52);
     }
 
     ctx.textAlign = 'right';
@@ -774,4 +827,17 @@ function render() {
   } else if (!localAnim) {
     bladeHistory = null;
   }
+
+  // frame timing + diagnostics overlay
+  frameTimeMs = performance.now() - rT0;
+  fpsFrames++;
+  const __n = performance.now();
+  if (__n - fpsLast >= 500) {
+    fpsValue = Math.round(fpsFrames * 1000 / (__n - fpsLast));
+    fpsFrames = 0;
+    fpsLast = __n;
+  }
+  if (__n - maxFrameAt > 2000) { maxFrameMs = frameTimeMs; maxFrameAt = __n; }
+  else if (frameTimeMs > maxFrameMs) maxFrameMs = frameTimeMs;
+  drawDiag();
 }
