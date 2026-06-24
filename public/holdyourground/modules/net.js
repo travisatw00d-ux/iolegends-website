@@ -9,6 +9,51 @@ let guestJoinedCallback = null;
 let lobbyCountCallback = null;
 
 export function getSocket() { return socket; }
+
+function updateXPBar(level, currentXP, xpToNextLevel) {
+  const xpBar = document.getElementById('xpBar');
+  if (!xpBar || xpBar.classList.contains('hidden')) return;
+  const percent = Math.max(0, Math.min(100, (currentXP / xpToNextLevel) * 100));
+  document.getElementById("levelBadge").textContent = level;
+  document.getElementById("xpFill").style.width = `${percent}%`;
+  document.getElementById("xpText").textContent = `${currentXP.toLocaleString()} / ${xpToNextLevel.toLocaleString()} XP`;
+  document.getElementById("xpPercent").textContent = `${Math.round(percent)}%`;
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+async function loadGameAssets() {
+  const [sheet, meta, kSheet, kMeta] = await Promise.all([
+    loadImage('/images/spritesheet.png'),
+    fetch('/images/spritesheet.json').then(r => r.json()),
+    loadImage('/images/KnightSheet.png'),
+    fetch('/images/KnightSheet.json').then(r => r.json())
+  ]);
+  state.spriteSheet = sheet;
+  state.spriteFrames = meta.frames;
+  state.knightSheet = kSheet;
+  state.knightFrames = kMeta.frames;
+  state.backgroundCanvas = generateBackground(state.worldW, state.worldH);
+
+  // Extract settings gear from sprite sheet onto the <img>
+  const gearFrame = state.spriteFrames?.['settingsgear.png']?.frame;
+  if (gearFrame) {
+    const c = document.createElement('canvas');
+    c.width = gearFrame.w;
+    c.height = gearFrame.h;
+    const cx = c.getContext('2d');
+    cx.drawImage(state.spriteSheet, gearFrame.x, gearFrame.y, gearFrame.w, gearFrame.h, 0, 0, gearFrame.w, gearFrame.h);
+    const img = document.getElementById('settingsGearImg');
+    if (img) img.src = c.toDataURL();
+  }
+}
 export function onRoomList(cb) { roomListCallback = cb; }
 export function onAuthSuccess(cb) { authSuccessCallback = cb; }
 export function onGuestJoined(cb) { guestJoinedCallback = cb; }
@@ -70,20 +115,35 @@ export function connect() {
     state.myId = id;
     state.worldW = arenaWidth;
     state.worldH = arenaHeight;
-    state.backgroundCanvas = generateBackground(state.worldW, state.worldH);
   });
 
-  socket.on('joined', () => {
+  socket.on('joined', async () => {
     resetKeys();
-    state.screen = 'playing';
     document.getElementById('menu').classList.add('hidden');
+    document.getElementById('errorMsg').textContent = '';
+    state.cameraZoom = 1.0;
+    socket.emit('cameraZoom', { zoom: 1.0, viewW: state.viewW, viewH: state.viewH });
+
+    if (!state.spriteSheet) {
+      document.getElementById('loadingOverlay').classList.remove('hidden');
+      try {
+        await loadGameAssets();
+      } catch (e) {
+        console.error('[HYG] asset load failed:', e);
+        document.getElementById('loadingOverlay').classList.add('hidden');
+        socket.emit('leaveRoom');
+        return;
+      }
+      document.getElementById('loadingOverlay').classList.add('hidden');
+    }
+
+    state.screen = 'playing';
     document.getElementById('eliminated').classList.add('hidden');
     document.getElementById('hud').classList.remove('hidden');
     document.getElementById('hotbarInventory').classList.remove('hidden');
     document.getElementById('settingsBtn').classList.remove('hidden');
-    document.getElementById('errorMsg').textContent = '';
-    state.cameraZoom = 1.0;
-    socket.emit('cameraZoom', { zoom: 1.0, viewW: state.viewW, viewH: state.viewH });
+    document.getElementById('xpBar').classList.remove('hidden');
+    updateXPBar(state.level, state.exp, state.expToNext);
     startRender(socket);
   });
 
@@ -151,7 +211,7 @@ export function connect() {
         const zlvl = dv.getUint8(o); o += 1;
         const zalive = dv.getUint8(o) === 1; o += 1;
         const old = oldZ[zid];
-        const maxHealth = old ? old.maxHealth : zombieMaxHealth(zlvl);
+        const maxHealth = zombieMaxHealth(zlvl);
         const z = {
           id: zid, x: zx, y: zy, health: zhealth, maxHealth,
           headingAngle: zheading, lvl: zlvl, alive: zalive
@@ -207,6 +267,7 @@ export function connect() {
     document.getElementById('hotbarInventory').classList.add('hidden');
     document.getElementById('settingsBtn').classList.add('hidden');
     document.getElementById('settingsPanel').classList.add('hidden');
+    document.getElementById('xpBar').classList.add('hidden');
     state.screen = 'eliminated';
   });
 
@@ -218,6 +279,7 @@ export function connect() {
     document.getElementById('hud').classList.remove('hidden');
     document.getElementById('hotbarInventory').classList.remove('hidden');
     document.getElementById('settingsBtn').classList.remove('hidden');
+    document.getElementById('xpBar').classList.remove('hidden');
     state.cameraZoom = 1.0;
     socket.emit('cameraZoom', { zoom: 1.0, viewW: state.viewW, viewH: state.viewH });
     startRender(socket);
@@ -227,7 +289,24 @@ export function connect() {
   socket.on('hitConfirm', ({ dmg, x, y }) => { state.dmgNumbers.push({ x, y, dmg, timer: 1.2, duration: 1.2 }); });
   socket.on('zombieMerge', ({ x, y }) => { state.mergeSmokes.push({ x, y, timer: 1.0 }); });
 
+  socket.on('accountUpdate', ({ exp, level, expToNext, gold }) => {
+    state.exp = exp;
+    state.level = level;
+    state.expToNext = expToNext;
+    state.gold = gold;
+    updateXPBar(level, exp, expToNext);
+  });
+
   socket.on('attackStart', ({ lockedAngle }) => { startAttackAnim(lockedAngle); });
+
+  socket.on('zombieAttackStart', ({ zombieId }) => {
+    const anim = window.ZOMBIE_ANIMATIONS?.attack;
+    if (anim) {
+      state.zombieAnims[zombieId] = {
+        startTime: performance.now()
+      };
+    }
+  });
 
   socket.on('diagPong', (t) => {
     state.ping = Date.now() - t;
