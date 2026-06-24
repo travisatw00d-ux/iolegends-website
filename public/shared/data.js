@@ -91,23 +91,48 @@
     serverLevel: { x: 53, y: 56, scale: 0.4, ty: -6 }
   };
 
+  const KNIGHT_BLADE_TIP_X = -10;
+  const KNIGHT_BLADE_TIP_Y = -87;
+  const KNIGHT_BLADE_HILT_X = 0;
+  const KNIGHT_BLADE_HILT_Y = 16;
+
   const KNIGHT_VISUALS = {
     knight_sword: {
-      offsetX: 50,
-      offsetY: 9,
-      scale: 0.589,
-      rotation: 1.24
+      offsetX: 19,
+      offsetY: 37,
+      scale: 0.430,
+      rotation: 1.65
     },
     knight_hand: {
       offsetX: 25,
-      offsetY: -19,
-      scale: 0.437,
-      rotation: -1.09
+      offsetY: -17,
+      scale: 0.383,
+      rotation: 0.14
+    }
+  };
+
+  const KNIGHT_ANIMATIONS = {
+    attack: {
+      segments: [30, 30],
+      knight_sword: {
+        keyframes: [
+          { offsetX: 19, offsetY: 37, scale: 0.43, rotation: 1.65 },
+          { offsetX: 77, offsetY: 17, scale: 0.43, rotation: 1.38 },
+          { offsetX: 19, offsetY: 37, scale: 0.43, rotation: 1.65 },
+        ]
+      },
+      knight_hand: {
+        keyframes: [
+          { offsetX: 25, offsetY: -17, scale: 0.383, rotation: 0.14 },
+          { offsetX: 7, offsetY: -31, scale: 0.383, rotation: -0.22 },
+          { offsetX: 25, offsetY: -17, scale: 0.383, rotation: 0.14 },
+        ]
+      }
     }
   };
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { BASE_STATS, ITEMS, ITEM_VISUALS, ANIMATIONS, SWORD_IMG_SIZE, BLADE_TIP_X, BLADE_TIP_Y, BLADE_HILT_X, BLADE_HILT_Y, ZOMBIE_VISUALS, ZOMBIE_ANIMATIONS, SCREEN_UI, KNIGHT_VISUALS };
+    module.exports = { BASE_STATS, ITEMS, ITEM_VISUALS, ANIMATIONS, SWORD_IMG_SIZE, BLADE_TIP_X, BLADE_TIP_Y, BLADE_HILT_X, BLADE_HILT_Y, ZOMBIE_VISUALS, ZOMBIE_ANIMATIONS, SCREEN_UI, KNIGHT_VISUALS, KNIGHT_ANIMATIONS, KNIGHT_BLADE_TIP_X, KNIGHT_BLADE_TIP_Y, KNIGHT_BLADE_HILT_X, KNIGHT_BLADE_HILT_Y };
   } else {
     window.BASE_STATS = BASE_STATS;
     window.ITEMS = ITEMS;
@@ -122,5 +147,10 @@
     window.ZOMBIE_ANIMATIONS = ZOMBIE_ANIMATIONS;
     window.SCREEN_UI = SCREEN_UI;
     window.KNIGHT_VISUALS = KNIGHT_VISUALS;
+    window.KNIGHT_ANIMATIONS = KNIGHT_ANIMATIONS;
+    window.KNIGHT_BLADE_TIP_X = KNIGHT_BLADE_TIP_X;
+    window.KNIGHT_BLADE_TIP_Y = KNIGHT_BLADE_TIP_Y;
+    window.KNIGHT_BLADE_HILT_X = KNIGHT_BLADE_HILT_X;
+    window.KNIGHT_BLADE_HILT_Y = KNIGHT_BLADE_HILT_Y;
   }
 })();

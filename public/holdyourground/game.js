@@ -1,5 +1,6 @@
 import { state } from './modules/state.js';
-import { connect, onRoomList, onAuthSuccess, onGuestJoined, onLobbyCount } from './modules/net.js';
+import { connect } from './modules/net.js';
+import { onRoomList, onAuthSuccess, onGuestJoined, onLobbyCount } from './modules/callback-registry.js';
 import { setupInput } from './modules/input.js';
 import { startRender, stopRender, resizeViewport } from './modules/render.js';
 
@@ -34,6 +35,7 @@ const settingsPanel = document.getElementById('settingsPanel');
 const settingsClose = document.getElementById('settingsClose');
 const fullscreenToggle = document.getElementById('fullscreenToggle');
 const godModeToggle = document.getElementById('godModeToggle');
+const killMobsBtn = document.getElementById('killMobsBtn');
 const adminSettings = document.getElementById('adminSettings');
 const escapeMenu = document.getElementById('escapeMenu');
 const escapeStep1 = document.getElementById('escapeStep1');
@@ -44,6 +46,15 @@ const escapeCancelBtn = document.getElementById('escapeCancelBtn');
 const errorMsg = document.getElementById('errorMsg');
 const signInPrompt = document.getElementById('signInPrompt');
 const wrapper = document.getElementById('wrapper');
+const startNowBtn = document.getElementById('startNowBtn');
+const waitingRespawn = document.getElementById('waitingRespawn');
+const waitingLobbyBtn = document.getElementById('waitingLobbyBtn');
+const lobbyScreen = document.getElementById('lobbyScreen');
+const lobbyStartBtn = document.getElementById('lobbyStartBtn');
+const lobbyLeaveBtn = document.getElementById('lobbyLeaveBtn');
+const resultsPlayAgainBtn = document.getElementById('resultsPlayAgainBtn');
+const resultsLobbyBtn = document.getElementById('resultsLobbyBtn');
+const joinGameBtn = document.getElementById('joinGameBtn');
 
 let selectedRoomId = null;
 let currentRooms = [];
@@ -51,13 +62,19 @@ let currentRooms = [];
 function showScreen(id) {
   menu.classList.add('hidden');
   eliminated.classList.add('hidden');
+  waitingRespawn.classList.add('hidden');
+  lobbyScreen.classList.add('hidden');
   hud.classList.add('hidden');
   hotbarEl.classList.add('hidden');
   settingsPanel.classList.add('hidden');
+  document.getElementById('xpBar').classList.add('hidden');
+  document.getElementById('loadingOverlay').classList.add('hidden');
   state.screen = id;
   if (id === 'menu') menu.classList.remove('hidden');
   if (id === 'eliminated') eliminated.classList.remove('hidden');
-  if (id === 'playing') { hud.classList.remove('hidden'); hotbarEl.classList.remove('hidden'); settingsBtn.classList.remove('hidden'); }
+  if (id === 'waitingRespawn') waitingRespawn.classList.remove('hidden');
+  if (id === 'lobby') lobbyScreen.classList.remove('hidden');
+  if (id === 'playing') { hud.classList.remove('hidden'); hotbarEl.classList.remove('hidden'); settingsBtn.classList.remove('hidden'); document.getElementById('xpBar').classList.remove('hidden'); }
 }
 
 showScreen('menu');
@@ -256,6 +273,10 @@ godModeToggle.addEventListener('change', () => {
   socket.emit('toggleGodMode');
 });
 
+killMobsBtn.addEventListener('click', () => {
+  socket.emit('killAllMobs');
+});
+
 function hideEscapeMenu() {
   escapeMenu.classList.add('hidden');
   escapeStep2.classList.add('hidden');
@@ -269,8 +290,20 @@ function showEscapeMenu() {
 }
 
 escapeReturnBtn.addEventListener('click', () => {
-  escapeStep1.classList.add('hidden');
-  escapeStep2.classList.remove('hidden');
+  stopRender();
+  socket.emit('leaveRoom');
+  hideEscapeMenu();
+  eliminated.classList.add('hidden');
+  waitingRespawn.classList.add('hidden');
+  lobbyScreen.classList.add('hidden');
+  menu.classList.remove('hidden');
+  document.getElementById('xpBar').classList.add('hidden');
+  document.getElementById('loadingOverlay').classList.add('hidden');
+  startNowBtn.classList.add('hidden');
+  document.getElementById('phaseDisplay').classList.add('hidden');
+  welcomeMsg.textContent = 'Ready For Battle?';
+  state.screen = 'menu';
+  selectedRoomId = null;
 });
 
 escapeConfirmBtn.addEventListener('click', () => {
@@ -279,6 +312,8 @@ escapeConfirmBtn.addEventListener('click', () => {
   hideEscapeMenu();
   eliminated.classList.add('hidden');
   menu.classList.remove('hidden');
+  document.getElementById('xpBar').classList.add('hidden');
+  document.getElementById('loadingOverlay').classList.add('hidden');
   welcomeMsg.textContent = 'Ready For Battle?';
   state.screen = 'menu';
   selectedRoomId = null;
@@ -290,6 +325,67 @@ lobbyBtn.addEventListener('click', () => {
   stopRender();
   socket.emit('leaveRoom');
   eliminated.classList.add('hidden');
+  lobbyScreen.classList.add('hidden');
+  menu.classList.remove('hidden');
+  document.getElementById('xpBar').classList.add('hidden');
+  document.getElementById('loadingOverlay').classList.add('hidden');
+  welcomeMsg.textContent = 'Ready For Battle?';
+  state.screen = 'menu';
+  selectedRoomId = null;
+});
+
+startNowBtn.addEventListener('click', () => {
+  socket.emit('startMatch');
+});
+
+resultsPlayAgainBtn.addEventListener('click', () => {
+  document.getElementById('resultsOverlay').classList.add('hidden');
+  document.getElementById('joinGameBtn').classList.add('hidden');
+  if (state.isSpectator) {
+    socket.emit('joinQueue');
+  } else {
+    state.isSpectator = false;
+    socket.emit('playAgain');
+  }
+});
+
+resultsLobbyBtn.addEventListener('click', () => {
+  stopRender();
+  socket.emit('leaveRoom');
+  document.getElementById('resultsOverlay').classList.add('hidden');
+  lobbyScreen.classList.add('hidden');
+  menu.classList.remove('hidden');
+  document.getElementById('xpBar').classList.add('hidden');
+  welcomeMsg.textContent = 'Ready For Battle?';
+  state.screen = 'menu';
+  selectedRoomId = null;
+});
+
+joinGameBtn.addEventListener('click', () => {
+  const count = Object.keys(state.players).length;
+  socket.emit(count < 10 ? 'joinGame' : 'joinQueue');
+  const name = state.account?.displayName || state.guestName || 'Player';
+  state.queuedPlayers = [...(state.queuedPlayers || []), { id: state.myId, name, pos: 0 }];
+});
+
+waitingLobbyBtn.addEventListener('click', () => {
+  stopRender();
+  socket.emit('leaveRoom');
+  waitingRespawn.classList.add('hidden');
+  menu.classList.remove('hidden');
+  document.getElementById('xpBar').classList.add('hidden');
+  welcomeMsg.textContent = 'Ready For Battle?';
+  state.screen = 'menu';
+  selectedRoomId = null;
+});
+
+lobbyStartBtn.addEventListener('click', () => {
+  socket.emit('startMatch');
+});
+
+lobbyLeaveBtn.addEventListener('click', () => {
+  socket.emit('leaveRoom');
+  lobbyScreen.classList.add('hidden');
   menu.classList.remove('hidden');
   welcomeMsg.textContent = 'Ready For Battle?';
   state.screen = 'menu';
