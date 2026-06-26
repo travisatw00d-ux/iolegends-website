@@ -1,9 +1,16 @@
 import { state } from './state.js';
 import { getCamera } from './camera.js';
 import { getInput } from './input.js';
-import { drawPlayer, drawZombie, drawDebugSwordHitbox, getBladeSegment, getSpriteFromSheet } from './render-entity.js';
-import { updateLeaderboard, updateHotbar, drawStatHUD, drawServerLevel, drawSpectatingUI, drawDeadSpectatingUI, drawDmgNumbers, drawMergeSmoke, drawBuildWatermark, drawHitFlash } from './render-ui.js';
+import { drawPlayer, drawZombie, drawDebugSwordHitbox, getBladeSegment } from './render-entity.js';
+import { drawStatHUD, drawServerLevel, drawSpectatingUI, drawDeadSpectatingUI, drawDmgNumbers, drawMergeSmoke, drawBuildWatermark, drawHitFlash } from './render-ui.js';
 import { drawDiag } from './diag.js';
+
+function shortAngleDist(a, b) {
+  let diff = b - a;
+  while (diff > Math.PI) diff -= Math.PI * 2;
+  while (diff < -Math.PI) diff += Math.PI * 2;
+  return diff;
+}
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
@@ -128,6 +135,9 @@ function render() {
     const sx = (p.px + (p.x - p.px) * alpha) - cam.x;
     const sy = (p.py + (p.y - p.py) * alpha) - cam.y;
     if (sx < -40 || sx > eW + 40 || sy < -40 || sy > eH + 40) continue;
+    if (p.id !== state.myId && p.pfacingAngle != null) {
+      p._smoothAngle = p.pfacingAngle + shortAngleDist(p.pfacingAngle, p.facingAngle) * alpha;
+    }
     drawPlayer(ctx, p, sx, sy, alpha, topKills);
     if (state.debugHitbox) {
       const knightFrame = state.knightFrames?.[`T${p.lvl >= 20 ? 3 : p.lvl >= 10 ? 2 : 1}KnightHead.png`]?.frame;
@@ -195,8 +205,8 @@ let animFrame = null;
 let inputInterval = null;
 
 export function startRender(socket) {
-  if (animFrame) return;
-  if (inputInterval) clearInterval(inputInterval);
+  if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+  if (inputInterval) { clearInterval(inputInterval); inputInterval = null; }
   inputInterval = setInterval(() => {
     if (state.screen === 'playing') {
       const input = getInput();
@@ -213,6 +223,11 @@ export function startRender(socket) {
   let lastRAF = 0;
   function loop(ts) {
     if (state.screen === 'playing') {
+      state._frameCount = (state._frameCount || 0) + 1;
+      if (state._frameCount % 600 === 0) {
+        const age = state._lastStateTime ? Math.round((performance.now() - state._lastStateTime)) : -1;
+        socket.emit('clientDiag', { event: 'frame', frames: state._frameCount, stateAge: age, phase: state.matchPhase });
+      }
       if (lastRAF && ts - lastRAF < 500) {
         const gap = ts - lastRAF;
         state.lastFrameGap = gap;

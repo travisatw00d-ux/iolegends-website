@@ -46,7 +46,6 @@ const escapeCancelBtn = document.getElementById('escapeCancelBtn');
 const errorMsg = document.getElementById('errorMsg');
 const signInPrompt = document.getElementById('signInPrompt');
 const wrapper = document.getElementById('wrapper');
-const startNowBtn = document.getElementById('startNowBtn');
 const waitingRespawn = document.getElementById('waitingRespawn');
 const waitingLobbyBtn = document.getElementById('waitingLobbyBtn');
 const lobbyScreen = document.getElementById('lobbyScreen');
@@ -125,6 +124,12 @@ function renderRoomList(rooms) {
 }
 
 const socket = connect();
+
+const params = new URLSearchParams(window.location.search);
+const guestName = params.get('guest');
+if (guestName) {
+  setTimeout(() => socket.emit('playAsGuest', { name: guestName }), 100);
+}
 
 function showLoginForm() {
   loginMode.classList.remove('hidden');
@@ -289,8 +294,15 @@ function showEscapeMenu() {
   escapeMenu.classList.remove('hidden');
 }
 
+function clearCanvas() {
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
 escapeReturnBtn.addEventListener('click', () => {
   stopRender();
+  clearCanvas();
   socket.emit('leaveRoom');
   hideEscapeMenu();
   eliminated.classList.add('hidden');
@@ -299,7 +311,6 @@ escapeReturnBtn.addEventListener('click', () => {
   menu.classList.remove('hidden');
   document.getElementById('xpBar').classList.add('hidden');
   document.getElementById('loadingOverlay').classList.add('hidden');
-  startNowBtn.classList.add('hidden');
   document.getElementById('phaseDisplay').classList.add('hidden');
   welcomeMsg.textContent = 'Ready For Battle?';
   state.screen = 'menu';
@@ -308,6 +319,7 @@ escapeReturnBtn.addEventListener('click', () => {
 
 escapeConfirmBtn.addEventListener('click', () => {
   stopRender();
+  clearCanvas();
   socket.emit('leaveRoom');
   hideEscapeMenu();
   eliminated.classList.add('hidden');
@@ -323,6 +335,7 @@ escapeCancelBtn.addEventListener('click', hideEscapeMenu);
 
 lobbyBtn.addEventListener('click', () => {
   stopRender();
+  clearCanvas();
   socket.emit('leaveRoom');
   eliminated.classList.add('hidden');
   lobbyScreen.classList.add('hidden');
@@ -334,46 +347,44 @@ lobbyBtn.addEventListener('click', () => {
   selectedRoomId = null;
 });
 
-startNowBtn.addEventListener('click', () => {
-  socket.emit('startMatch');
-});
+
 
 resultsPlayAgainBtn.addEventListener('click', () => {
   document.getElementById('resultsOverlay').classList.add('hidden');
   document.getElementById('joinGameBtn').classList.add('hidden');
-  if (state.isSpectator) {
-    socket.emit('joinQueue');
+  if (resultsPlayAgainBtn.textContent === 'Spectate') {
+    socket.emit('spectate');
   } else {
-    state.isSpectator = false;
     socket.emit('playAgain');
   }
 });
 
 resultsLobbyBtn.addEventListener('click', () => {
   stopRender();
+  clearCanvas();
   socket.emit('leaveRoom');
   document.getElementById('resultsOverlay').classList.add('hidden');
   lobbyScreen.classList.add('hidden');
   menu.classList.remove('hidden');
   document.getElementById('xpBar').classList.add('hidden');
+  document.getElementById('loadingOverlay').classList.add('hidden');
   welcomeMsg.textContent = 'Ready For Battle?';
   state.screen = 'menu';
   selectedRoomId = null;
 });
 
 joinGameBtn.addEventListener('click', () => {
-  const count = Object.keys(state.players).length;
-  socket.emit(count < 10 ? 'joinGame' : 'joinQueue');
-  const name = state.account?.displayName || state.guestName || 'Player';
-  state.queuedPlayers = [...(state.queuedPlayers || []), { id: state.myId, name, pos: 0 }];
+  socket.emit('joinGame');
 });
 
 waitingLobbyBtn.addEventListener('click', () => {
   stopRender();
+  clearCanvas();
   socket.emit('leaveRoom');
   waitingRespawn.classList.add('hidden');
   menu.classList.remove('hidden');
   document.getElementById('xpBar').classList.add('hidden');
+  document.getElementById('loadingOverlay').classList.add('hidden');
   welcomeMsg.textContent = 'Ready For Battle?';
   state.screen = 'menu';
   selectedRoomId = null;
@@ -459,5 +470,19 @@ document.addEventListener('keydown', (e) => {
 setInterval(() => {
   if (socket.connected) socket.emit('diagPing', Date.now());
 }, 250);
+
+setInterval(() => {
+  if (state.screen !== 'playing') return;
+  const age = state._lastStateTime ? performance.now() - state._lastStateTime : -1;
+  if (age > 8000 && state.matchPhase !== 'waiting' && state.matchPhase !== 'ended') {
+    socket.emit('clientDiag', { event: 'stalled', stateAge: Math.round(age), phase: state.matchPhase, frames: state._frameCount || 0 });
+  } else if (age === -1 && state.matchPhase !== 'waiting' && state.matchPhase !== 'ended') {
+    socket.emit('clientDiag', { event: 'stalled', stateAge: -1, phase: state.matchPhase, frames: state._frameCount || 0 });
+  }
+}, 8000);
+
+document.addEventListener('visibilitychange', () => {
+  socket.emit('clientDiag', { event: 'tabVisibility', hidden: document.hidden, screen: state.screen, phase: state.matchPhase });
+});
 
 export { socket, showScreen };

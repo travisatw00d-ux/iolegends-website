@@ -49,6 +49,33 @@ function renderLobbyCards() {
   }
 }
 
+function updateJoinButton() {
+  const btn = document.getElementById('joinGameBtn');
+  if (state.screen === 'menu' || state.screen === 'eliminated' || state.screen === 'results') {
+    btn.classList.add('hidden');
+    return;
+  }
+  if (state.screen === 'playing' && !state.isSpectator && !state.isDeadSpectating) {
+    btn.classList.add('hidden');
+    return;
+  }
+  btn.classList.remove('hidden');
+  const myEntry = (state.queuedPlayers || []).find(q => q.id === state.myId);
+  if (myEntry && myEntry.pos > 0) {
+    btn.textContent = myEntry.pos === 1 ? 'In queue: next in line' : 'In queue: ' + (myEntry.pos - 1) + ' ahead';
+  } else if (myEntry) {
+    btn.textContent = 'In queue: waiting for slot...';
+  } else if (state.isDeadSpectating) {
+    btn.textContent = 'Waiting for daytime...';
+  } else if (state.isSpectator) {
+    btn.textContent = (state.matchPhase === 'ended' || state.matchPhase === 'waiting') ? 'Join Queue' : 'Join Game';
+  } else if (state.matchPhase === 'waiting') {
+    btn.classList.add('hidden');
+  } else {
+    btn.classList.add('hidden');
+  }
+}
+
 export function registerEvents(socket) {
   socket.on('guestJoined', (data) => { resetKeys(); if (callbacks.guestJoined) callbacks.guestJoined(data); });
   socket.on('authSuccess', (data) => { resetKeys(); if (callbacks.authSuccess) callbacks.authSuccess(data); });
@@ -71,26 +98,32 @@ export function registerEvents(socket) {
     state.isDeadSpectating = false; state.queuedPlayers = []; state.spectatingTargetIndex = 0;
     state.localAnim = null; state.currentWave = 0; state.serverLevel = 0;
     state.dmgNumbers = []; state.mergeSmokes = []; state.zombieAnims = {};
-    document.getElementById('joinGameBtn').classList.add('hidden');
     document.getElementById('menu').classList.add('hidden');
+    document.getElementById('lobbyScreen').classList.add('hidden');
+    document.getElementById('resultsOverlay').classList.add('hidden');
+    document.getElementById('loadingOverlay').classList.remove('hidden');
     document.getElementById('errorMsg').textContent = '';
     state.cameraZoom = 1.0;
     socket.emit('cameraZoom', { zoom: 1.0, viewW: state.viewW, viewH: state.viewH });
     state.screen = 'joining';
+    state._joinedEnded = true;
   });
 
   socket.on('state', (msg) => {
+    state._lastStateTime = performance.now();
     const u8 = msg instanceof ArrayBuffer ? new Uint8Array(msg) : new Uint8Array(msg.buffer, msg.byteOffset, msg.byteLength);
     const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
     let o = 0;
+    let playerCount = 0, zombieCount = 0;
     try {
       dv.getUint8(o); o += 1;
       const emitTime = dv.getFloat64(o, true); o += 8;
       const arenaW = dv.getUint16(o, true); o += 2;
       const arenaH = dv.getUint16(o, true); o += 2;
       const sLevel = dv.getUint16(o, true); o += 2;
-      const playerCount = dv.getUint8(o); o += 1;
-      const zombieCount = dv.getUint16(o, true); o += 2;
+      playerCount = dv.getUint8(o); o += 1;
+      zombieCount = dv.getUint16(o, true); o += 2;
+      state.isSpectator = dv.getUint8(o) === 1; o += 1;
 
       const oldP = state.players;
       const map = {};
@@ -120,8 +153,8 @@ export function registerEvents(socket) {
           speed: meta.speed != null ? meta.speed : 13, attackDmg: meta.attackDmg != null ? meta.attackDmg : 5,
           attackSpeed: meta.attackSpeed != null ? meta.attackSpeed : 800
         };
-        if (old && Math.abs(x - old.x) < 200 && Math.abs(y - old.y) < 200) { p.px = old.x; p.py = old.y; }
-        else { p.px = x; p.py = y; }
+        if (old && Math.abs(x - old.x) < 200 && Math.abs(y - old.y) < 200) { p.px = old.x; p.py = old.y; p.pfacingAngle = old.facingAngle; }
+        else { p.px = x; p.py = y; p.pfacingAngle = facingAngle; }
         map[id] = p;
       }
       state.players = map;
@@ -171,13 +204,17 @@ export function registerEvents(socket) {
       updateLeaderboard();
       updateHotbar();
     } catch (e) {
-      console.error('[HYG] state buffer error:', e);
+      console.error(`[HYG] state buffer error at offset=${o} playerCount=${playerCount} zombieCount=${zombieCount} bytes=${u8.byteLength}:`, e);
       state.players = {}; state.zombies = [];
     }
   });
 
   socket.on('playerInfo', (info) => {
     state.playerMeta[info.id] = info;
+    if (info.id === state.myId && info.isSpectator != null) {
+      state.isSpectator = info.isSpectator;
+      updateJoinButton();
+    }
     if (state.players[info.id]) {
       const p = state.players[info.id];
       p.name = info.name; p.color = info.color || '#888888';
@@ -232,16 +269,23 @@ export function registerEvents(socket) {
 
   socket.on('spectatorAssigned', () => {
     state.isSpectator = true;
-    document.getElementById('joinGameBtn').classList.remove('hidden');
+    state.isDeadSpectating = false;
+    state._joinedEnded = false;
     document.getElementById('xpBar').classList.add('hidden');
+    if (state.screen === 'results') {
+      enterGame(socket);
+    }
+    updateJoinButton();
   });
 
-  socket.on('joinedGame', () => {
-    state.isSpectator = false; state.isDeadSpectating = false;
+  socket.on('joinedGame', ({ isDead } = {}) => {
+    state._joinedEnded = false;
+    state.isSpectator = false;
+    state.isDeadSpectating = !!isDead;
     state.queuedPlayers = (state.queuedPlayers || []).filter(q => q.id !== state.myId);
     state.screen = 'playing'; state.level = 1; state.exp = 0; state.expToNext = 100; state.gold = 0;
-    document.getElementById('joinGameBtn').classList.add('hidden');
     document.getElementById('xpBar').classList.remove('hidden');
+    updateJoinButton();
     updateXPBar(1, 0, 100);
     stopRender();
     startRender(socket);
@@ -250,8 +294,26 @@ export function registerEvents(socket) {
   socket.on('queueUpdate', ({ queued, playerCount }) => {
     state.queuedPlayers = queued || [];
     if (playerCount != null) state.activePlayerCount = playerCount;
+    document.getElementById('lobbyActiveCount').textContent = playerCount || 0;
+    document.getElementById('lobbyQueueCount').textContent = (queued || []).length;
+    document.getElementById('lobbyQueueInfo').classList.remove('hidden');
+    const myQ = (queued || []).find(q => q.id === state.myId);
+    const posEl = document.getElementById('lobbyQueuePos');
+    if (posEl) {
+      if (myQ && myQ.pos > 0) {
+        posEl.textContent = 'You are ' + myQ.pos + '. in queue';
+        posEl.classList.remove('hidden');
+      } else if (myQ) {
+        posEl.textContent = 'In queue: waiting for slot...';
+        posEl.classList.remove('hidden');
+      } else {
+        posEl.classList.add('hidden');
+      }
+    }
     state.lbSig = '';
     updateLeaderboard();
+    updateJoinButton();
+    socket.emit('clientDiag', { event: 'queueUpdate', isSpectator: state.isSpectator, screen: state.screen, matchPhase: state.matchPhase, queued: (queued || []).length, myPos: myQ?.pos });
   });
 
   socket.on('attackStart', ({ lockedAngle }) => { startAttackAnim(lockedAngle); });
@@ -261,63 +323,102 @@ export function registerEvents(socket) {
     if (anim) state.zombieAnims[zombieId] = { startTime: performance.now() };
   });
 
-  socket.on('matchPhase', ({ phase, timer, wave, readyPlayers }) => {
+  socket.on('matchPhase', async ({ phase, timer, wave, readyPlayers, activePlayers }) => {
     state.matchPhase = phase;
     state.phaseTimer = timer;
     state.phaseTimerStart = timer;
     state.phaseStartedAt = performance.now();
     state.currentWave = wave;
-    if (readyPlayers) state.isSpectator = !readyPlayers.includes(state.myId);
-    document.getElementById('startNowBtn').classList.toggle('hidden', phase !== 'waiting');
+    if (activePlayers) state.isSpectator = !activePlayers.includes(state.myId);
     document.getElementById('phaseDisplay').classList.toggle('hidden', phase === 'waiting' || phase === 'ended');
     const names = { daytime: 'Daytime', nighttime: 'Nighttime', waveOver: 'Clean Up', intermission: 'Intermission' };
     document.getElementById('phaseName').textContent = names[phase] || phase;
 
-    if (phase === 'ended' && (state.screen === 'lobby' || state.screen === 'joining' || state.screen === 'results')) {
+    if (phase === 'ended' && (state.screen === 'lobby' || state.screen === 'joining' || state.screen === 'results' || state.screen === 'playing')) {
+      document.getElementById('loadingOverlay').classList.add('hidden');
+      if (state._joinedEnded || state.isSpectator) {
+        document.getElementById('loadingOverlay').classList.remove('hidden');
+        await ensureAssets();
+        document.getElementById('loadingOverlay').classList.add('hidden');
+        document.getElementById('lobbyScreen').classList.remove('hidden');
+        document.getElementById('resultsOverlay').classList.add('hidden');
+        document.getElementById('lobbyTimer').classList.remove('hidden');
+        document.getElementById('lobbyTimerValue').textContent = Math.ceil(timer / 1000);
+        document.getElementById('lobbyStartBtn').classList.add('hidden');
+        state.screen = 'lobby';
+        state.isSpectator = true;
+        state.lobbyPlayers = [];
+        renderLobbyCards();
+        updateJoinButton();
+        return;
+      }
       document.getElementById('lobbyScreen').classList.remove('hidden');
-      document.getElementById('startNowBtn').classList.add('hidden');
       document.getElementById('resultsOverlay').classList.remove('hidden');
       document.getElementById('resultsTimerValue').textContent = Math.ceil(timer / 1000);
       state.screen = 'results';
     } else if (phase !== 'waiting' && (state.screen === 'lobby' || state.screen === 'joining' || state.screen === 'results')) {
       document.getElementById('lobbyScreen').classList.add('hidden');
-      if (state.screen !== 'results') document.getElementById('resultsOverlay').classList.add('hidden');
-      document.getElementById('startNowBtn').classList.add('hidden');
-      enterGame(socket);
+      if (state.screen !== 'results') {
+        document.getElementById('resultsOverlay').classList.add('hidden');
+        console.log('[HYG] enterGame trigger', { phase, screen: state.screen, isSpec: state.isSpectator, myId: state.myId, rp: readyPlayers?.length });
+        enterGame(socket);
+      } else {
+        document.getElementById('resultsPlayAgainBtn').textContent = 'Spectate';
+      }
     } else if (phase === 'waiting' && (state.screen === 'lobby' || state.screen === 'joining' || state.screen === 'results')) {
+      await ensureAssets();
+      document.getElementById('loadingOverlay').classList.add('hidden');
+      ['eliminated', 'waitingRespawn', 'settingsPanel', 'phaseDisplay', 'hud', 'hotbarInventory', 'xpBar'].forEach(id => document.getElementById(id).classList.add('hidden'));
       document.getElementById('lobbyScreen').classList.remove('hidden');
+      document.getElementById('lobbyStartBtn').classList.toggle('hidden', !!state.isSpectator);
       document.getElementById('resultsOverlay').classList.add('hidden');
       state.screen = 'lobby';
+      renderLobbyCards();
     }
+    updateJoinButton();
+    if (!document.getElementById('resultsOverlay').classList.contains('hidden')) {
+      document.getElementById('joinGameBtn').classList.add('hidden');
+    }
+    socket.emit('clientDiag', { event: 'matchPhase', phase, isSpectator: state.isSpectator, screen: state.screen, _joinedEnded: state._joinedEnded });
   });
 
   socket.on('matchEnd', ({ wave, timer, serverLevel, playerStats, lobbyPlayers }) => {
+    if (state._joinedEnded || state.isSpectator) {
+      state._joinedEnded = false;
+      return;
+    }
     stopRender();
     state.matchPhase = 'ended'; state.isDeadSpectating = false;
-    document.getElementById('lobbyScreen').classList.remove('hidden');
+    document.getElementById('loadingOverlay').classList.add('hidden');
     document.getElementById('resultsOverlay').classList.remove('hidden');
-    ['phaseDisplay', 'startNowBtn', 'waitingRespawn'].forEach(id => document.getElementById(id).classList.add('hidden'));
+    ['phaseDisplay', 'waitingRespawn'].forEach(id => document.getElementById(id).classList.add('hidden'));
     ['menu', 'eliminated'].forEach(id => document.getElementById(id).classList.add('hidden'));
+    document.getElementById('joinGameBtn').classList.add('hidden');
     ['hud', 'hotbarInventory', 'settingsBtn', 'settingsPanel', 'xpBar'].forEach(id => document.getElementById(id).classList.add('hidden'));
     document.getElementById('resultsTimerValue').textContent = Math.ceil((timer || 30000) / 1000);
     document.getElementById('lobbyStartBtn').classList.add('hidden');
-    state.lobbyPlayers = [];
-    renderLobbyCards();
     renderResults({ serverLevel, playerStats, wave });
-    document.getElementById('resultsPlayAgainBtn').textContent = state.isSpectator ? 'Join Queue' : 'Play Again';
+    document.getElementById('resultsPlayAgainBtn').textContent = 'Play Again';
     state.screen = 'results';
   });
 
-  socket.on('matchReset', ({ readyPlayers }) => {
+  socket.on('matchReset', ({ readyPlayers, activePlayers }) => {
     const isReady = readyPlayers && readyPlayers.includes(state.myId);
     if (state.screen === 'results' && !isReady) return;
+    if (activePlayers) state.isSpectator = !activePlayers.includes(state.myId);
+    document.getElementById('loadingOverlay').classList.add('hidden');
     state.matchPhase = 'waiting'; state.phaseTimer = 0; state.phaseTimerStart = 0; state.phaseStartedAt = 0;
     state.currentWave = 0; state.screen = 'lobby';
     document.getElementById('phaseDisplay').classList.add('hidden');
-    ['startNowBtn', 'resultsOverlay', 'waitingRespawn', 'eliminated'].forEach(id => document.getElementById(id).classList.add('hidden'));
+    ['resultsOverlay', 'waitingRespawn', 'eliminated'].forEach(id => document.getElementById(id).classList.add('hidden'));
+    document.getElementById('lobbyTimer').classList.add('hidden');
+    document.getElementById('lobbyQueueInfo').classList.add('hidden');
+    document.getElementById('lobbyQueuePos').classList.add('hidden');
     ['hud', 'hotbarInventory', 'settingsBtn', 'xpBar'].forEach(id => document.getElementById(id).classList.add('hidden'));
     document.getElementById('lobbyScreen').classList.remove('hidden');
-    document.getElementById('lobbyStartBtn').classList.remove('hidden');
+    document.getElementById('lobbyStartBtn').classList.toggle('hidden', !!state.isSpectator);
+    updateJoinButton();
+    socket.emit('clientDiag', { event: 'matchReset', isSpectator: state.isSpectator, screen: state.screen, matchPhase: 'waiting', _joinedEnded: state._joinedEnded });
   });
 
   socket.on('lobbyUpdate', ({ players }) => {
@@ -326,12 +427,20 @@ export function registerEvents(socket) {
   });
 
   socket.on('endGameLobby', ({ players, ready, timer, allReady }) => {
-    const readySet = new Set(ready || []);
-    state.lobbyPlayers = (players || []).filter(p => readySet.has(p.id));
-    renderLobbyCards();
+    // Player clicked Play Again — show lobby, hide results
+    const serverReady = new Set(ready || []);
+    if (state.screen === 'results' && serverReady.has(state.myId)) {
+      document.getElementById('resultsOverlay').classList.add('hidden');
+      document.getElementById('lobbyScreen').classList.remove('hidden');
+      document.getElementById('lobbyStartBtn').classList.add('hidden');
+      state.screen = 'lobby';
+    }
+    // Refresh lobby state (always runs)
     document.getElementById('resultsTimerValue').textContent = Math.max(0, Math.ceil(timer / 1000));
+    document.getElementById('lobbyTimerValue').textContent = Math.max(0, Math.ceil(timer / 1000));
+    document.getElementById('lobbyTimer').classList.remove('hidden');
     const startBtn = document.getElementById('lobbyStartBtn');
-    if (startBtn) startBtn.classList.toggle('hidden', !allReady);
+    if (startBtn) startBtn.classList.toggle('hidden', !allReady || state.isSpectator);
   });
 
   socket.on('diagPong', (t) => {
@@ -409,9 +518,18 @@ async function enterGame(socket) {
     state.backgroundCanvas = generateBackground(state.worldW, state.worldH);
     state.backgroundCanvasLight = generateBackground(state.worldW, state.worldH, '#e8e4d8');
   }
+  state._joinedEnded = false;
   state.screen = 'playing';
   state.level = 1; state.exp = 0; state.expToNext = 100; state.gold = 0;
+  state.zombies = []; state.activePlayerCount = 0;
+  state.dmgNumbers = []; state.mergeSmokes = []; state.zombieAnims = {};
+  state.localAnim = null; state.lbSig = ''; state.hotSig = '';
   document.getElementById('eliminated').classList.add('hidden');
+  document.getElementById('loadingOverlay').classList.add('hidden');
+  updateJoinButton();
+  if (!document.getElementById('resultsOverlay').classList.contains('hidden')) {
+    document.getElementById('joinGameBtn').classList.add('hidden');
+  }
   ['hud', 'hotbarInventory', 'settingsBtn'].forEach(id => document.getElementById(id).classList.remove('hidden'));
   if (!state.isSpectator) {
     document.getElementById('xpBar').classList.remove('hidden');
