@@ -1,8 +1,8 @@
 import { state } from './state.js';
 import { getCamera } from './camera.js';
-import { getInput } from './input.js';
+import { getInput, resetKeys } from './input.js';
 import { drawPlayer, drawZombie, drawDebugSwordHitbox, getBladeSegment } from './render-entity.js';
-import { drawStatHUD, drawServerLevel, drawSpectatingUI, drawDeadSpectatingUI, drawDmgNumbers, drawMergeSmoke, drawBuildWatermark, drawHitFlash } from './render-ui.js';
+import { drawStatHUD, drawServerLevel, drawSpectatingUI, drawDeadSpectatingUI, drawDmgNumbers, drawBuildWatermark, drawHitFlash, drawHUD } from './render-ui.js';
 import { drawDiag } from './diag.js';
 
 function shortAngleDist(a, b) {
@@ -42,15 +42,20 @@ export function generateBackground(w, h, color) {
 }
 
 function render() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, state.viewW, state.viewH);
   const rT0 = performance.now();
 
-  if (state.matchPhase && state.matchPhase !== 'waiting' && state.phaseTimerStart > 0) {
+  if (state.matchPhase === 'nighttime' && state.waveStartTime > 0) {
+    const elapsed = Math.floor((performance.now() - state.waveStartTime) / 1000);
+    const prev = state._lastWaveSec || -1;
+    if (elapsed !== prev) { state._lastWaveSec = elapsed; }
+  } else if (state.matchPhase === 'daytime' && state.phaseTimer > 0 && state.phaseTimer <= 10000 && !state._wavePopupTriggered && state.waveComposition && state._showNWPopup) {
+    state._wavePopupTriggered = true;
+    state._showNWPopup();
+  } else if (state.matchPhase && state.matchPhase !== 'waiting' && state.phaseTimerStart > 0) {
     const elapsed = performance.now() - state.phaseStartedAt;
     const remaining = Math.max(0, state.phaseTimerStart - elapsed);
-    const seconds = Math.ceil(remaining / 1000);
-    const prevSeconds = Math.ceil(state.phaseTimer / 1000);
-    if (seconds !== prevSeconds) document.getElementById('phaseTimer').textContent = seconds + 's';
     state.phaseTimer = remaining;
   }
 
@@ -140,13 +145,12 @@ function render() {
     }
     drawPlayer(ctx, p, sx, sy, alpha, topKills);
     if (state.debugHitbox) {
-      const knightFrame = state.knightFrames?.[`T${p.lvl >= 20 ? 3 : p.lvl >= 10 ? 2 : 1}KnightHead.png`]?.frame;
+      const knightFrame = state.knightFrames?.['T1KnightHead.png']?.frame;
       drawDebugSwordHitbox(ctx, p, sx, sy, !!knightFrame);
     }
   }
 
   drawDmgNumbers(ctx, cam.x, cam.y);
-  drawMergeSmoke(ctx, cam.x, cam.y);
 
   if (me && me.alive && state.localAnim) {
     const mex = me.px + (me.x - me.px) * alpha;
@@ -159,8 +163,7 @@ function render() {
 
   ctx.restore();
 
-  const hudTarget = state.isDeadSpectating && spectatingTarget ? spectatingTarget : me;
-  drawStatHUD(ctx, hudTarget);
+  drawHUD(ctx);
   drawSpectatingUI(ctx);
   drawDeadSpectatingUI(ctx, spectatingTarget);
 
@@ -207,6 +210,7 @@ let inputInterval = null;
 export function startRender(socket) {
   if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
   if (inputInterval) { clearInterval(inputInterval); inputInterval = null; }
+  resetKeys();
   inputInterval = setInterval(() => {
     if (state.screen === 'playing') {
       const input = getInput();

@@ -12,7 +12,18 @@ export function getSpriteFromSheet(sheet, drawW, drawH, frame) {
     cached = document.createElement('canvas');
     cached.width = Math.round(drawW * m);
     cached.height = Math.round(drawH * m);
-    cached.getContext('2d').drawImage(sheet, frame.x, frame.y, frame.w, frame.h, 0, 0, cached.width, cached.height);
+    const cx = cached.getContext('2d');
+    const srcAspect = frame.w / frame.h;
+    const dstAspect = cached.width / cached.height;
+    let sx = 0, sy = 0, sw = cached.width, sh = cached.height;
+    if (srcAspect > dstAspect) {
+      sh = cached.width / srcAspect;
+      sy = (cached.height - sh) / 2;
+    } else {
+      sw = cached.height * srcAspect;
+      sx = (cached.width - sw) / 2;
+    }
+    cx.drawImage(sheet, frame.x, frame.y, frame.w, frame.h, sx, sy, sw, sh);
     _spriteCache.set(key, cached);
   }
   return cached;
@@ -179,8 +190,7 @@ export function startAttackAnim(lockedAngle) {
   if (state.localAnim) return;
   const me = state.players[state.myId];
   if (!me) return;
-  const knightKey = me.lvl >= 20 ? 'T3KnightHead.png' : me.lvl >= 10 ? 'T2KnightHead.png' : 'T1KnightHead.png';
-  const knightFrame = state.knightFrames?.[knightKey]?.frame;
+  const knightFrame = state.knightFrames?.['T1KnightHead.png']?.frame;
   if (knightFrame) {
     const anim = window.KNIGHT_ANIMATIONS?.attack;
     if (!anim || !anim.knight_sword || anim.knight_sword.keyframes.length < 2) return;
@@ -224,7 +234,7 @@ function drawKnightSword(ctx, p, sx, sy) {
   const entry = state.knightFrames?.['T1KnightSword.png'];
   const frame = entry?.frame;
   if (!frame) return;
-  const sw = (entry.sourceSize?.w || 128) * vis.scale, sh = (entry.sourceSize?.h || 128) * vis.scale;
+  const sw = frame.w * vis.scale, sh = frame.h * vis.scale;
   ctx.save();
   ctx.translate(sx + rx, sy + ry);
   ctx.rotate(angle + (vis.rotation || 0));
@@ -244,7 +254,7 @@ function drawKnightHand(ctx, p, sx, sy) {
   const entry = state.knightFrames?.['T1KnightLeftHand.png'];
   const frame = entry?.frame;
   if (!frame) return;
-  const sw = (entry.sourceSize?.w || 96) * vis.scale, sh = (entry.sourceSize?.h || 96) * vis.scale;
+  const sw = frame.w * vis.scale, sh = frame.h * vis.scale;
   ctx.save();
   ctx.translate(sx + rx, sy + ry);
   ctx.rotate(angle + (vis.rotation || 0));
@@ -252,9 +262,17 @@ function drawKnightHand(ctx, p, sx, sy) {
   ctx.restore();
 }
 
-function drawZombieHand(ctx, z, szx, szy, angle, handKey, lvl) {
-  const isT2 = lvl >= 6;
-  const fname = handKey === 'left_hand' ? (isT2 ? 'T2zombielefthand.png' : 'zombielefthand.png') : (isT2 ? 'T2zombierighthand.png' : 'zombierighthand.png');
+function getMobSpritePrefix(z) {
+  const mobTypes = window.MOB_TYPES || [];
+  const mt = mobTypes[z.mobType];
+  if (mt && mt.id === 'troll') return 'troll';
+  return 'zombie';
+}
+
+function drawZombieHand(ctx, z, szx, szy, angle, handKey) {
+  const prefix = getMobSpritePrefix(z);
+  const isTroll = prefix === 'troll';
+  const fname = handKey === 'left_hand' ? (isTroll ? 'trolllefthand.png' : 'zombielefthand.png') : (isTroll ? 'trollrighthand.png' : 'zombierighthand.png');
   const frame = state.spriteFrames?.[fname]?.frame;
   if (!frame) return;
   let vis = window.ZOMBIE_VISUALS?.[handKey];
@@ -264,7 +282,7 @@ function drawZombieHand(ctx, z, szx, szy, angle, handKey, lvl) {
   const cos = Math.cos(angle), sin = Math.sin(angle);
   const rx = vis.offsetX * cos - vis.offsetY * sin;
   const ry = vis.offsetX * sin + vis.offsetY * cos;
-  const handScale = isT2 ? 1.1 : 1.0;
+  const handScale = isTroll ? 1.1 : 1.0;
   const sw = frame.w * vis.scale * handScale, sh = frame.h * vis.scale * handScale;
   ctx.save();
   ctx.translate(szx + rx, szy + ry);
@@ -307,27 +325,28 @@ export function drawKnightPreview(ctx, cw, ch) {
   const swordFrame = swordEntry?.frame;
   const swordVis = window.KNIGHT_VISUALS?.knight_sword;
   if (swordFrame && swordVis) {
+    const sw = swordFrame.w * swordVis.scale, sh = swordFrame.h * swordVis.scale;
     ctx.save();
     ctx.translate(cx + swordVis.offsetX, cy + swordVis.offsetY);
     ctx.rotate(swordVis.rotation || 0);
-    ctx.drawImage(state.knightSheet, swordFrame.x, swordFrame.y, swordFrame.w, swordFrame.h, -((swordEntry.sourceSize?.w || 128) * swordVis.scale) / 2, -((swordEntry.sourceSize?.h || 128) * swordVis.scale) / 2, (swordEntry.sourceSize?.w || 128) * swordVis.scale, (swordEntry.sourceSize?.h || 128) * swordVis.scale);
+    ctx.drawImage(getSpriteFromSheet(state.knightSheet, sw, sh, swordFrame), -sw / 2, -sh / 2, sw, sh);
     ctx.restore();
   }
   const handEntry = state.knightFrames?.['T1KnightLeftHand.png'];
   const handFrame = handEntry?.frame;
   const handVis = window.KNIGHT_VISUALS?.knight_hand;
   if (handFrame && handVis) {
+    const sw = handFrame.w * handVis.scale, sh = handFrame.h * handVis.scale;
     ctx.save();
     ctx.translate(cx + handVis.offsetX, cy + handVis.offsetY);
     ctx.rotate(handVis.rotation || 0);
-    ctx.drawImage(state.knightSheet, handFrame.x, handFrame.y, handFrame.w, handFrame.h, -((handEntry.sourceSize?.w || 96) * handVis.scale) / 2, -((handEntry.sourceSize?.h || 96) * handVis.scale) / 2, (handEntry.sourceSize?.w || 96) * handVis.scale, (handEntry.sourceSize?.h || 96) * handVis.scale);
+    ctx.drawImage(getSpriteFromSheet(state.knightSheet, sw, sh, handFrame), -sw / 2, -sh / 2, sw, sh);
     ctx.restore();
   }
 }
 
 export function drawPlayer(ctx, p, sx, sy, alpha, topKills) {
-  const knightKey = p.lvl >= 20 ? 'T3KnightHead.png' : p.lvl >= 10 ? 'T2KnightHead.png' : 'T1KnightHead.png';
-  const knightFrame = state.knightFrames?.[knightKey]?.frame;
+  const knightFrame = state.knightFrames?.['T1KnightHead.png']?.frame;
   const isKnight = !!knightFrame;
 
   if (knightFrame) {
@@ -364,10 +383,11 @@ export function drawPlayer(ctx, p, sx, sy, alpha, topKills) {
 }
 
 export function drawZombie(ctx, z, szx, szy, zombieAngle) {
-  const headKey = z.lvl >= 6 ? 'T2zombiehead.png' : 'zombiehead.png';
+  const prefix = getMobSpritePrefix(z);
+  const headKey = prefix === 'troll' ? 'trollhead.png' : 'zombiehead.png';
   const headFrame = state.spriteFrames?.[headKey]?.frame;
   if (headFrame) {
-    const headScale = (z.lvl >= 6 ? 1.1 : 1.0);
+    const headScale = prefix === 'troll' ? 1.1 : 1.0;
     const sz = (40 * headScale) / Math.max(headFrame.w, headFrame.h);
     ctx.save();
     ctx.translate(szx, szy);
@@ -375,8 +395,8 @@ export function drawZombie(ctx, z, szx, szy, zombieAngle) {
     ctx.drawImage(getSpriteFromSheet(state.spriteSheet, headFrame.w * sz, headFrame.h * sz, headFrame), -(headFrame.w * sz) / 2, -(headFrame.h * sz) / 2, headFrame.w * sz, headFrame.h * sz);
     ctx.restore();
   }
-  drawZombieHand(ctx, z, szx, szy, zombieAngle, 'left_hand', z.lvl);
-  drawZombieHand(ctx, z, szx, szy, zombieAngle, 'right_hand', z.lvl);
+  drawZombieHand(ctx, z, szx, szy, zombieAngle, 'left_hand');
+  drawZombieHand(ctx, z, szx, szy, zombieAngle, 'right_hand');
   ctx.fillStyle = '#ff6666';
   ctx.fillText(z.label || 'zombie', szx, szy - 30);
   drawHealthBar(ctx, szx, szy - 24, 30, 3, z.health, z.maxHealth);
