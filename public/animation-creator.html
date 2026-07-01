@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Animation Creator</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0a0f; color: #eee;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  display: flex; justify-content: center; align-items: center;
+  min-height: 100vh;
+}
+.container { display: flex; gap: 32px; align-items: flex-start; padding: 20px; }
+canvas { border: 1px solid #333; border-radius: 8px; cursor: grab; background: #fff; }
+.panel { display: flex; flex-direction: column; gap: 14px; width: 320px; }
+.panel h2 { font-size: 1.1rem; font-weight: 600; }
+.note { font-size: 0.75rem; color: #666; line-height: 1.4; }
+.ctrl-group { display: flex; flex-direction: column; gap: 3px; }
+.ctrl-group label { font-size: 0.78rem; color: #999; display: flex; justify-content: space-between; }
+.ctrl-group input[type="range"] { width: 100%; accent-color: #4ECDC4; }
+.val { color: #4ECDC4; font-family: monospace; font-size: 0.85rem; }
+select {
+  background: #1a1a28; border: 1px solid #333; color: #eee;
+  border-radius: 4px; padding: 6px 8px; font-size: 0.85rem; font-family: monospace;
+  width: 100%;
+}
+.tabs { display: flex; gap: 4px; }
+.tab {
+  flex: 1; text-align: center; padding: 6px; border-radius: 4px;
+  font-size: 0.78rem; cursor: pointer; background: #1a1a28; border: 1px solid #333; color: #888;
+}
+.tab.active { border-color: #4ECDC4; color: #4ECDC4; background: rgba(78,205,196,0.08); }
+.kf-list { display: flex; flex-wrap: wrap; gap: 4px; }
+.kf-btn {
+  background: #1a1a28; border: 1px solid #333; border-radius: 4px;
+  color: #ccc; font-size: 0.75rem; padding: 4px 10px; cursor: pointer;
+  font-family: monospace; position: relative;
+}
+.kf-btn.selected { border-color: #4ECDC4; color: #4ECDC4; }
+.kf-del {
+  margin-left: 4px; color: #e55; cursor: pointer; font-weight: bold;
+}
+.kf-del:hover { color: #f77; }
+.seg-row { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: #999; }
+.seg-row input { width: 60px; background: #1a1a28; border: 1px solid #333; color: #eee; border-radius: 4px; padding: 3px 6px; font-size: 0.8rem; font-family: monospace; }
+.btn {
+  background: #4ECDC4; border: none; border-radius: 6px; padding: 8px 14px;
+  color: #0a0a0f; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+  transition: background 0.15s;
+}
+.btn:hover { background: #45b8b0; }
+.btn:active { background: #3ca39c; }
+.btn-outline {
+  background: transparent; border: 1px solid #4ECDC4; color: #4ECDC4;
+}
+.btn-outline:hover { background: rgba(78, 205, 196, 0.1); }
+.btn-danger {
+  background: transparent; border: 1px solid #e55; color: #e55;
+}
+.btn-danger:hover { background: rgba(238, 85, 85, 0.1); }
+.output {
+  background: #0d0d14; border: 1px solid #333; border-radius: 6px;
+  padding: 10px; font-family: monospace; font-size: 0.75rem; line-height: 1.5;
+  max-height: 160px; overflow: auto; white-space: pre;
+}
+.output .num { color: #4ECDC4; }
+.section-title { font-size: 0.78rem; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+.row { display: flex; gap: 8px; }
+.row .btn { flex: 1; text-align: center; }
+#playFrame { font-size: 0.8rem; color: #4ECDC4; font-family: monospace; }
+.status { font-size: 0.78rem; color: #888; }
+</style>
+</head>
+<body>
+<div class="container">
+  <canvas id="c" width="400" height="400"></canvas>
+  <div class="panel">
+    <h2>Animation Creator</h2>
+    <p class="note" id="helpNote">KF #0 is the idle pose. Drag the sprite, adjust sliders, then click <b>Set Keyframe</b> to save both hands together.</p>
+
+    <div class="ctrl-group">
+      <label>Mode</label>
+      <select id="modeSelect">
+        <option value="sword">Sword</option>
+        <option value="zombie">Zombie</option>
+        <option value="knight">Knight</option>
+      </select>
+    </div>
+
+    <div class="tabs" id="handTabs" style="display:none;">
+      <div class="tab active" data-hand="left">Left Hand</div>
+      <div class="tab" data-hand="right">Right Hand</div>
+    </div>
+
+    <div class="ctrl-group">
+      <label>Scale <span class="val" id="scaleVal">0.047</span></label>
+      <input type="range" id="scale" min="0.005" max="1.0" step="0.001" value="0.047">
+    </div>
+    <div class="ctrl-group">
+      <label>Rotation <span class="val" id="rotVal">0.59</span> rad</label>
+      <input type="range" id="rotation" min="-3.14" max="3.14" step="0.01" value="0.59">
+    </div>
+
+    <button class="btn" id="setKfBtn">Set Keyframe</button>
+
+    <div class="section-title" style="margin-top:12px">Hitbox</div>
+    <div class="ctrl-group">
+      <label>Blade W <span class="val" id="bladeWVal">6</span></label>
+      <input type="range" id="bladeWSlider" min="1" max="20" step="0.5" value="6">
+    </div>
+    <div class="ctrl-group">
+      <label>Tip X <span class="val" id="tipXVal">-10</span></label>
+      <input type="range" id="tipXSlider" min="-50" max="50" step="1" value="-10">
+    </div>
+    <div class="ctrl-group">
+      <label>Tip Y <span class="val" id="tipYVal">-87</span></label>
+      <input type="range" id="tipYSlider" min="-120" max="20" step="1" value="-87">
+    </div>
+    <div class="ctrl-group">
+      <label>Hilt X <span class="val" id="hiltXVal">0</span></label>
+      <input type="range" id="hiltXSlider" min="-50" max="50" step="1" value="0">
+    </div>
+    <div class="ctrl-group">
+      <label>Hilt Y <span class="val" id="hiltYVal">16</span></label>
+      <input type="range" id="hiltYSlider" min="-20" max="60" step="1" value="16">
+    </div>
+    <div class="status" style="font-size:0.7rem;color:#666;text-align:center">Drag tip/hilt circles on canvas or use sliders</div>
+
+    <div class="section-title">Keyframes</div>
+    <div class="kf-list" id="kfList"></div>
+
+    <div class="section-title">Timing</div>
+    <div id="segContainer"></div>
+
+    <div class="section-title">Preview</div>
+    <div class="row">
+      <button class="btn" id="playBtn">Play</button>
+      <button class="btn btn-outline" id="stopBtn">Stop</button>
+    </div>
+    <div class="status">Frame: <span id="playFrame">0</span> / <span id="totalFrame">0</span></div>
+
+    <div class="section-title">Export</div>
+    <div class="ctrl-group" style="flex-direction:row;gap:6px;">
+      <input type="text" id="animName" value="attack" style="flex:1;background:#1a1a28;border:1px solid #333;color:#eee;border-radius:4px;padding:6px 8px;font-size:0.85rem;font-family:monospace;">
+      <button class="btn" id="saveBtn">Save Animation</button>
+    </div>
+
+    <div class="output" id="output"></div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = 400, H = 400;
+const CX = W / 2, CY = H / 2;
+
+// ─── Constants ───
+
+const SWORD_NATIVE_SIZE = 1254;
+
+const ZOMBIE_INITIAL_LEFT  = { offsetX: 16, offsetY: -20, scale: 0.230, rotation: -1.55 };
+const ZOMBIE_INITIAL_RIGHT = { offsetX: 16, offsetY: 20,  scale: 0.230, rotation: -1.55 };
+const SWORD_INITIAL        = { offsetX: 23, offsetY: 24,  scale: 0.047, rotation: 0.59 };
+
+const KNIGHT_INITIAL_SWORD = { offsetX: 19, offsetY: 37, scale: 0.430, rotation: 1.65 };
+const KNIGHT_INITIAL_HAND  = { offsetX: 25, offsetY: -17, scale: 0.383, rotation: 0.14 };
+
+// ─── Sword data (unchanged) ───
+
+let swordKeyframes = [{ ...SWORD_INITIAL }];
+let swordSegments = [];
+
+// ─── Zombie data — combined keyframes ───
+
+let zombieKeyframes = [{
+  left: { offsetX: 16, offsetY: -20, scale: 0.230, rotation: -1.55 },
+  right: { offsetX: 16, offsetY: 20,  scale: 0.230, rotation: -1.55 }
+}];
+let zombieSegments = [];
+
+// ─── Knight data ───
+
+let knightKeyframes = [{
+  sword: { ...KNIGHT_INITIAL_SWORD },
+  hand:  { ...KNIGHT_INITIAL_HAND }
+}];
+let knightSegments = [];
+let knightSwordPose = { ...knightKeyframes[0].sword };
+let knightHandPose  = { ...knightKeyframes[0].hand };
+let activeKnightItem = 'sword';
+
+// Source of truth for the current editing pose of each hand
+let leftHandPose  = { ...zombieKeyframes[0].left };
+let rightHandPose = { ...zombieKeyframes[0].right };
+let activeHand = 'left';
+
+// Slider values reflect the active hand's pose
+let offsetX = leftHandPose.offsetX;
+let offsetY = leftHandPose.offsetY;
+let scale   = leftHandPose.scale;
+let rotation = leftHandPose.rotation;
+
+// ─── Shared state ───
+
+let mode = 'sword';
+let dragging = false;
+let dragOffX = 0, dragOffY = 0;
+let selectedKF = 0;
+let playing = false;
+let playFrame = 0;
+let animRAF = null;
+
+// ─── Hitbox state ───
+let hbTipX = -10, hbTipY = -87, hbHiltX = 0, hbHiltY = 16, hbBladeW = 6;
+let dragHitbox = null; // 'tip' or 'hilt'
+
+// Sprite sheet
+let sheetImg = null;
+let sheetFrames = null;
+
+// Knight sprite sheet
+let knightSheet = null;
+let knightFrames = null;
+
+// ─── Data helpers ───
+
+function getKeyframesRef() {
+  if (mode === 'sword') return swordKeyframes;
+  if (mode === 'knight') return knightKeyframes;
+  return zombieKeyframes;
+}
+
+function getSegmentsRef() {
+  if (mode === 'sword') return swordSegments;
+  if (mode === 'knight') return knightSegments;
+  return zombieSegments;
+}
+
+function currentActivePose() {
+  return { offsetX, offsetY, scale: +scale.toFixed(3), rotation: +rotation.toFixed(2) };
+}
+
+function rebuildSegments() {
+  const segs = getSegmentsRef();
+  const n = getKeyframesRef().length;
+  while (segs.length < n - 1) segs.push(10);
+  if (segs.length > n - 1) segs.length = Math.max(0, n - 1);
+}
+
+function totalFrames() {
+  return getSegmentsRef().reduce((a, b) => a + b, 0);
+}
+
+function lerpVal(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function lerpPose(a, b, t) {
+  return {
+    offsetX: Math.round(lerpVal(a.offsetX, b.offsetX, t)),
+    offsetY: Math.round(lerpVal(a.offsetY, b.offsetY, t)),
+    scale: +lerpVal(a.scale, b.scale, t).toFixed(3),
+    rotation: +lerpVal(a.rotation, b.rotation, t).toFixed(2)
+  };
+}
+
+function getInterpolatedPose(frame, kfs, handKey) {
+  if (!kfs || kfs.length < 2) return kfs && kfs[0] ? kfs[0][handKey] : null;
+  const segs = getSegmentsRef();
+  const total = segs.reduce((a, b) => a + b, 0);
+  if (total === 0) return kfs[0][handKey];
+  const f = Math.min(frame, total - 1);
+  let accum = 0;
+  for (let i = 0; i < segs.length; i++) {
+    const segLen = segs[i];
+    if (f < accum + segLen) {
+      const t = (f - accum) / segLen;
+      return lerpPose(kfs[i][handKey], kfs[i + 1][handKey], t);
+    }
+    accum += segLen;
+  }
+  return kfs[kfs.length - 1][handKey];
+}
+
+// ─── Drawing helpers ───
+
+function getFrame(name) {
+  return sheetFrames && sheetFrames[name] && sheetFrames[name].frame;
+}
+
+function drawSprite(frame, dx, dy, dw, dh, rot, alpha) {
+  if (!frame || !sheetImg) return;
+  ctx.save();
+  if (alpha != null) ctx.globalAlpha = alpha;
+  ctx.translate(CX + dx, CY + dy);
+  if (rot) ctx.rotate(rot);
+  ctx.drawImage(sheetImg, frame.x, frame.y, frame.w, frame.h, -dw / 2, -dh / 2, dw, dh);
+  ctx.restore();
+}
+
+function getKnightFrame(name) {
+  return knightFrames && knightFrames[name] && knightFrames[name].frame;
+}
+
+function drawKnightSprite(frame, dx, dy, dw, dh, rot, alpha) {
+  if (!frame || !knightSheet) return;
+  ctx.save();
+  if (alpha != null) ctx.globalAlpha = alpha;
+  ctx.translate(CX + dx, CY + dy);
+  if (rot) ctx.rotate(rot);
+  ctx.drawImage(knightSheet, frame.x, frame.y, frame.w, frame.h, -dw / 2, -dh / 2, dw, dh);
+  ctx.restore();
+}
+
+// ─── Main draw ───
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(0,0,0,0.04)'; ctx.lineWidth = 1;
+  for (let x = 0; x <= W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y <= H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  // Direction arrow
+  ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 6]);
+  ctx.beginPath(); ctx.moveTo(CX + 10, CY); ctx.lineTo(CX + 80, CY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(CX + 80, CY); ctx.lineTo(CX + 73, CY - 4); ctx.moveTo(CX + 80, CY); ctx.lineTo(CX + 73, CY + 4); ctx.stroke();
+
+  // Crosshairs
+  ctx.strokeStyle = 'rgba(0,0,0,0.08)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(CX - 28, CY); ctx.lineTo(CX + 28, CY); ctx.moveTo(CX, CY - 28); ctx.lineTo(CX, CY + 28); ctx.stroke();
+
+  // Player circle
+  ctx.beginPath(); ctx.arc(CX, CY, 20, 0, Math.PI * 2);
+  const grad = ctx.createRadialGradient(CX - 6, CY - 6, 2, CX, CY, 20);
+  grad.addColorStop(0, '#5ee0d8'); grad.addColorStop(1, '#4ECDC4');
+  ctx.fillStyle = grad; ctx.fill();
+  ctx.strokeStyle = '#222'; ctx.lineWidth = 2; ctx.stroke();
+
+  if (!sheetImg) {
+    ctx.fillStyle = '#999';
+    ctx.font = '14px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('Loading sprite sheet...', CX, CY + 60);
+    return;
+  }
+
+  if (mode === 'zombie') drawZombie();
+  else if (mode === 'knight') drawKnight();
+  else drawSword();
+
+  updateOutput();
+}
+
+// ─── Zombie drawing ───
+
+function drawZombie() {
+  const headFrame = getFrame('zombiehead.png');
+
+  // Ghost hands from the prior saved keyframe
+  const kfs = getKeyframesRef();
+  if (!playing && kfs.length > 0) {
+    const ghost = kfs[kfs.length - 1];
+    const gfL = getFrame('zombielefthand.png');
+    const gfR = getFrame('zombierighthand.png');
+    if (gfL && ghost.left) {
+      const sw = gfL.w * ghost.left.scale;
+      const sh = gfL.h * ghost.left.scale;
+      drawSprite(gfL, ghost.left.offsetX, ghost.left.offsetY, sw, sh, ghost.left.rotation, 0.15);
+    }
+    if (gfR && ghost.right) {
+      const sw = gfR.w * ghost.right.scale;
+      const sh = gfR.h * ghost.right.scale;
+      drawSprite(gfR, ghost.right.offsetX, ghost.right.offsetY, sw, sh, ghost.right.rotation, 0.15);
+    }
+  }
+
+  // Zombie head reference — rotate -90° so it faces right (angle=0)
+  if (headFrame) {
+    const hs = 0.3;
+    const hw = headFrame.w * hs;
+    const hh = headFrame.h * hs;
+    drawSprite(headFrame, 0, 0, hw, hh, -Math.PI / 2, 0.7);
+  }
+
+  // Current hands — always source of truth
+  const lHand = playing ? getInterpolatedPose(playFrame, kfs, 'left') : leftHandPose;
+  const rHand = playing ? getInterpolatedPose(playFrame, kfs, 'right') : rightHandPose;
+
+  const lf = getFrame('zombielefthand.png');
+  const rf = getFrame('zombierighthand.png');
+  if (lf && lHand) {
+    drawSprite(lf, lHand.offsetX, lHand.offsetY, lf.w * lHand.scale, lf.h * lHand.scale, lHand.rotation, 1.0);
+  }
+  if (rf && rHand) {
+    drawSprite(rf, rHand.offsetX, rHand.offsetY, rf.w * rHand.scale, rf.h * rHand.scale, rHand.rotation, 1.0);
+  }
+
+  // Drag hint
+  if (!playing) {
+    const handName = activeHand === 'left' ? 'zombielefthand.png' : 'zombierighthand.png';
+    const frame = getFrame(handName);
+    if (frame) {
+      const sz = Math.max(frame.w, frame.h) * scale;
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.font = '11px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText('drag the hand', CX + offsetX, CY + offsetY + sz / 2 + 18);
+    }
+  }
+}
+
+// ─── Sword drawing (unchanged) ───
+
+function drawSword() {
+  const frame = getFrame('woodensword.png');
+  if (!frame) return;
+
+  const kfs = getKeyframesRef();
+  if (!playing && kfs.length > 0) {
+    const ghost = kfs[kfs.length - 1];
+    const gsw = SWORD_NATIVE_SIZE * ghost.scale;
+    const gsh = SWORD_NATIVE_SIZE * ghost.scale;
+    drawSprite(frame, ghost.offsetX, ghost.offsetY, gsw, gsh, ghost.rotation, 0.2);
+  }
+
+  const sw = SWORD_NATIVE_SIZE * scale;
+  const sh = SWORD_NATIVE_SIZE * scale;
+  drawSprite(frame, offsetX, offsetY, sw, sh, rotation);
+
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.font = '11px system-ui'; ctx.textAlign = 'center';
+  ctx.fillText('drag the sword', CX + offsetX, CY + offsetY + sh / 2 + 18);
+}
+
+// ─── Knight drawing ───
+
+function drawKnight() {
+  const swordFrame = getKnightFrame('T1KnightSword.png');
+  const handFrame = getKnightFrame('T1KnightLeftHand.png');
+  const headFrame = getKnightFrame('T1KnightHead.png');
+
+  // Ghost from last saved keyframe
+  const kfs = getKeyframesRef();
+  if (!playing && kfs.length > 0) {
+    const ghost = kfs[kfs.length - 1];
+    if (swordFrame && ghost.sword) {
+      drawKnightSprite(swordFrame, ghost.sword.offsetX, ghost.sword.offsetY, swordFrame.w * ghost.sword.scale, swordFrame.h * ghost.sword.scale, ghost.sword.rotation, 0.2);
+    }
+    if (handFrame && ghost.hand) {
+      drawKnightSprite(handFrame, ghost.hand.offsetX, ghost.hand.offsetY, handFrame.w * ghost.hand.scale, handFrame.h * ghost.hand.scale, ghost.hand.rotation, 0.2);
+    }
+  }
+
+  // Knight head
+  if (headFrame) {
+    const f = headFrame; const sz = 56 / Math.max(f.w, f.h);
+    const hw = f.w * sz; const hh = f.h * sz;
+    drawKnightSprite(headFrame, 0, 0, hw, hh, -Math.PI / 2, 0.7);
+  }
+
+  // Current items
+  const curSword = playing ? getInterpolatedPose(playFrame, kfs, 'sword') : knightSwordPose;
+  const curHand  = playing ? getInterpolatedPose(playFrame, kfs, 'hand') : knightHandPose;
+
+  if (swordFrame && curSword) {
+    drawKnightSprite(swordFrame, curSword.offsetX, curSword.offsetY, swordFrame.w * curSword.scale, swordFrame.h * curSword.scale, curSword.rotation, 1.0);
+  }
+  if (handFrame && curHand) {
+    drawKnightSprite(handFrame, curHand.offsetX, curHand.offsetY, handFrame.w * curHand.scale, handFrame.h * curHand.scale, curHand.rotation, 1.0);
+  }
+
+  // Hitbox overlay
+  if (curSword) {
+    drawHitbox(ctx, curSword.offsetX, curSword.offsetY, curSword.scale, curSword.rotation);
+  }
+
+  // Drag hint
+  if (!playing) {
+    const f = activeKnightItem === 'sword' ? swordFrame : handFrame;
+    if (f) {
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.font = '11px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText('drag the ' + activeKnightItem, CX + offsetX, CY + Math.max(f.h * scale, 20) + 18);
+    }
+  }
+}
+
+// ─── Hitbox drawing ───
+function drawHitbox(ctx, ox, oy, scl, rot) {
+  const sx = CX + ox, sy = CY + oy;
+  const cosR = Math.cos(rot), sinR = Math.sin(rot);
+
+  const tipX = sx + (hbTipX * cosR - hbTipY * sinR) * scl;
+  const tipY = sy + (hbTipX * sinR + hbTipY * cosR) * scl;
+  const hiltX = sx + (hbHiltX * cosR - hbHiltY * sinR) * scl;
+  const hiltY = sy + (hbHiltX * sinR + hbHiltY * cosR) * scl;
+
+  // Blade segment
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.4)';
+  ctx.shadowBlur = 6;
+  ctx.strokeStyle = 'rgba(255, 200, 0, 0.7)';
+  ctx.lineWidth = hbBladeW * 2;
+  ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(hiltX, hiltY); ctx.lineTo(tipX, tipY); ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(200, 120, 0, 0.9)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(hiltX, hiltY); ctx.lineTo(tipX, tipY); ctx.stroke();
+  ctx.restore();
+
+  // Perpendicular direction (for label offset)
+  const dx = tipX - hiltX, dy = tipY - hiltY;
+  const len = Math.sqrt(dx * dx + dy * dy) || 1;
+  const px = -dy / len, py = dx / len;
+  const labelOff = 22;
+
+  // Tip marker (small dot + leader line + label)
+  ctx.save();
+  ctx.fillStyle = '#FFD700';
+  ctx.beginPath(); ctx.arc(tipX, tipY, 3, 0, Math.PI * 2); ctx.fill();
+  const tLx = tipX + px * labelOff, tLy = tipY + py * labelOff;
+  ctx.strokeStyle = 'rgba(255,200,0,0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(tipX, tipY); ctx.lineTo(tLx, tLy); ctx.stroke();
+  ctx.fillStyle = '#000';
+  ctx.font = 'bold 10px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('tip (' + hbTipX + ',' + hbTipY + ')', tLx, tLy);
+  ctx.restore();
+
+  // Hilt marker (small dot + leader line + label)
+  ctx.save();
+  ctx.fillStyle = '#FF6B6B';
+  ctx.beginPath(); ctx.arc(hiltX, hiltY, 3, 0, Math.PI * 2); ctx.fill();
+  const hLx = hiltX - px * labelOff, hLy = hiltY - py * labelOff;
+  ctx.strokeStyle = 'rgba(255,100,100,0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(hiltX, hiltY); ctx.lineTo(hLx, hLy); ctx.stroke();
+  ctx.fillStyle = '#000';
+  ctx.font = 'bold 10px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('hilt (' + hbHiltX + ',' + hbHiltY + ')', hLx, hLy);
+  ctx.restore();
+
+  // BladeW label (offset perpendicular from midpoint)
+  ctx.save();
+  const mx = (tipX + hiltX) / 2, my = (tipY + hiltY) / 2;
+  const wLx = mx + px * (labelOff + 10), wLy = my + py * (labelOff + 10);
+  ctx.strokeStyle = 'rgba(255,200,0,0.3)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(wLx, wLy); ctx.stroke();
+  ctx.fillStyle = '#FFD700';
+  ctx.font = 'bold 10px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('w=' + hbBladeW, wLx, wLy);
+  ctx.restore();
+}
+
+// ─── Input ───
+
+function getPos(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * (W / r.width), y: (e.clientY - r.top) * (H / r.height) };
+}
+
+function getHitRadius() {
+  if (mode === 'sword') return SWORD_NATIVE_SIZE * scale / 2 + 15;
+  if (mode === 'knight') {
+    const swordFrame = getKnightFrame('T1KnightSword.png');
+    const handFrame = getKnightFrame('T1KnightLeftHand.png');
+    const f = activeKnightItem === 'sword' ? swordFrame : handFrame;
+    const base = f ? Math.max(f.w, f.h) : 40;
+    return base * scale / 2 + 15;
+  }
+  const handName = activeHand === 'left' ? 'zombielefthand.png' : 'zombierighthand.png';
+  const frame = getFrame(handName);
+  if (!frame) return 30;
+  return Math.max(frame.w, frame.h) * scale / 2 + 15;
+}
+
+function hitboxMarkerAt(p) {
+  if (mode !== 'knight') return null;
+  const curSword = playing ? getInterpolatedPose(playFrame, getKeyframesRef(), 'sword') : knightSwordPose;
+  if (!curSword) return null;
+  const sx = CX + curSword.offsetX, sy = CY + curSword.offsetY;
+  const rot = curSword.rotation;
+  const cosR = Math.cos(rot), sinR = Math.sin(rot);
+  const scl = curSword.scale;
+  const tipX = sx + (hbTipX * cosR - hbTipY * sinR) * scl;
+  const tipY = sy + (hbTipX * sinR + hbTipY * cosR) * scl;
+  const hiltX = sx + (hbHiltX * cosR - hbHiltY * sinR) * scl;
+  const hiltY = sy + (hbHiltX * sinR + hbHiltY * cosR) * scl;
+  const dTip = Math.hypot(p.x - tipX, p.y - tipY);
+  const dHilt = Math.hypot(p.x - hiltX, p.y - hiltY);
+  const thresh = 10;
+  if (dTip < thresh) return 'tip';
+  if (dHilt < thresh) return 'hilt';
+  return null;
+}
+
+canvas.addEventListener('mousedown', (e) => {
+  const p = getPos(e);
+  if (mode === 'knight' && !playing) {
+    const marker = hitboxMarkerAt(p);
+    if (marker) {
+      dragHitbox = marker;
+      canvas.style.cursor = 'grabbing';
+      return;
+    }
+  }
+  const dx = p.x - (CX + offsetX);
+  const dy = p.y - (CY + offsetY);
+  const rad = getHitRadius();
+  if (Math.sqrt(dx * dx + dy * dy) < rad) {
+    dragging = true;
+    dragOffX = dx;
+    dragOffY = dy;
+    canvas.style.cursor = 'grabbing';
+  }
+});
+
+function applyDragHitbox(p) {
+  const curSword = knightSwordPose;
+  if (!curSword) return;
+  const sx = CX + curSword.offsetX, sy = CY + curSword.offsetY;
+  const rot = curSword.rotation;
+  const cosR = Math.cos(rot), sinR = Math.sin(rot);
+  const scl = curSword.scale;
+  // Inverse transform: map canvas point back to local blade coords
+  const lx = (p.x - sx) / scl, ly = (p.y - sy) / scl;
+  // Inverse rotation
+  const localX = lx * cosR + ly * sinR;
+  const localY = -lx * sinR + ly * cosR;
+  if (dragHitbox === 'tip') {
+    hbTipX = Math.round(localX); hbTipY = Math.round(localY);
+  } else {
+    hbHiltX = Math.round(localX); hbHiltY = Math.round(localY);
+  }
+  syncHitboxUI();
+}
+
+canvas.addEventListener('mousemove', (e) => {
+  const p = getPos(e);
+  if (dragHitbox) {
+    applyDragHitbox(p);
+    draw();
+    return;
+  }
+  if (dragging) {
+    offsetX = Math.round(p.x - CX - dragOffX);
+    offsetY = Math.round(p.y - CY - dragOffY);
+    commitActivePose();
+    draw();
+  } else {
+    if (mode === 'knight' && !playing && hitboxMarkerAt(p)) {
+      canvas.style.cursor = 'pointer';
+    } else {
+      const dx = p.x - (CX + offsetX);
+      const dy = p.y - (CY + offsetY);
+      const rad = getHitRadius();
+      canvas.style.cursor = Math.sqrt(dx * dx + dy * dy) < rad ? 'grab' : 'default';
+    }
+  }
+});
+
+canvas.addEventListener('mouseup', () => { dragging = false; dragHitbox = null; canvas.style.cursor = 'default'; });
+canvas.addEventListener('mouseleave', () => { dragging = false; dragHitbox = null; canvas.style.cursor = 'default'; });
+
+// ─── Sliders ───
+
+const scaleSlider = document.getElementById('scale');
+const rotSlider = document.getElementById('rotation');
+const scaleVal = document.getElementById('scaleVal');
+const rotVal = document.getElementById('rotVal');
+
+scaleSlider.addEventListener('input', () => { scale = parseFloat(scaleSlider.value); commitActivePose(); draw(); });
+rotSlider.addEventListener('input', () => { rotation = parseFloat(rotSlider.value); commitActivePose(); draw(); });
+
+// ─── Hitbox sliders ───
+const bladeWSlider = document.getElementById('bladeWSlider');
+const tipXSlider = document.getElementById('tipXSlider');
+const tipYSlider = document.getElementById('tipYSlider');
+const hiltXSlider = document.getElementById('hiltXSlider');
+const hiltYSlider = document.getElementById('hiltYSlider');
+const bladeWVal = document.getElementById('bladeWVal');
+const tipXVal = document.getElementById('tipXVal');
+const tipYVal = document.getElementById('tipYVal');
+const hiltXVal = document.getElementById('hiltXVal');
+const hiltYVal = document.getElementById('hiltYVal');
+
+function syncHitboxUI() {
+  bladeWSlider.value = hbBladeW; bladeWVal.textContent = hbBladeW;
+  tipXSlider.value = hbTipX; tipXVal.textContent = hbTipX;
+  tipYSlider.value = hbTipY; tipYVal.textContent = hbTipY;
+  hiltXSlider.value = hbHiltX; hiltXVal.textContent = hbHiltX;
+  hiltYSlider.value = hbHiltY; hiltYVal.textContent = hbHiltY;
+}
+
+bladeWSlider.addEventListener('input', () => { hbBladeW = parseFloat(bladeWSlider.value); bladeWVal.textContent = hbBladeW; draw(); });
+tipXSlider.addEventListener('input', () => { hbTipX = parseInt(tipXSlider.value); tipXVal.textContent = hbTipX; draw(); });
+tipYSlider.addEventListener('input', () => { hbTipY = parseInt(tipYSlider.value); tipYVal.textContent = hbTipY; draw(); });
+hiltXSlider.addEventListener('input', () => { hbHiltX = parseInt(hiltXSlider.value); hiltXVal.textContent = hbHiltX; draw(); });
+hiltYSlider.addEventListener('input', () => { hbHiltY = parseInt(hiltYSlider.value); hiltYVal.textContent = hbHiltY; draw(); });
+
+// ─── Sync slider values back to the active hand's stored pose ───
+
+function commitActivePose() {
+  if (mode === 'zombie') {
+    const pose = { offsetX, offsetY, scale: +scale.toFixed(3), rotation: +rotation.toFixed(2) };
+    if (activeHand === 'left') leftHandPose = pose;
+    else rightHandPose = pose;
+  } else if (mode === 'knight') {
+    const pose = { offsetX, offsetY, scale: +scale.toFixed(3), rotation: +rotation.toFixed(2) };
+    if (activeKnightItem === 'sword') knightSwordPose = pose;
+    else knightHandPose = pose;
+  }
+}
+
+// ─── UI elements ───
+
+const modeSelect = document.getElementById('modeSelect');
+const handTabs = document.getElementById('handTabs');
+const kfList = document.getElementById('kfList');
+const segContainer = document.getElementById('segContainer');
+const playBtn = document.getElementById('playBtn');
+const stopBtn = document.getElementById('stopBtn');
+const playFrameEl = document.getElementById('playFrame');
+const totalFrameEl = document.getElementById('totalFrame');
+const animName = document.getElementById('animName');
+const output = document.getElementById('output');
+const helpNote = document.getElementById('helpNote');
+const tabs = document.querySelectorAll('.tab');
+
+// ─── Mode switching ───
+
+function switchMode(newMode) {
+  stopPreview();
+  mode = newMode;
+  handTabs.style.display = mode === 'zombie' || mode === 'knight' ? 'flex' : 'none';
+
+  if (mode === 'sword') {
+    selectedKF = Math.min(selectedKF, swordKeyframes.length - 1);
+    loadPose(swordKeyframes[selectedKF]);
+    helpNote.textContent = 'KF #0 is the idle pose. Drag the sword, adjust sliders, then click Set Keyframe.';
+  } else if (mode === 'knight') {
+    activeKnightItem = 'sword';
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.hand === 'sword'));
+    tabs[0].textContent = 'Sword'; tabs[0].dataset.hand = 'sword';
+    tabs[1].textContent = 'Hand'; tabs[1].dataset.hand = 'hand';
+    selectedKF = Math.min(selectedKF, knightKeyframes.length - 1);
+    const kf = knightKeyframes[selectedKF];
+    knightSwordPose = { ...kf.sword };
+    knightHandPose  = { ...kf.hand };
+    loadPose(knightSwordPose);
+    helpNote.textContent = 'KF #0 is the idle pose. Switch tabs, adjust each item, then Set Keyframe saves BOTH items together.';
+  } else {
+    activeHand = 'left';
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.hand === 'left'));
+    tabs[0].textContent = 'Left Hand'; tabs[0].dataset.hand = 'left';
+    tabs[1].textContent = 'Right Hand'; tabs[1].dataset.hand = 'right';
+    selectedKF = Math.min(selectedKF, zombieKeyframes.length - 1);
+    const kf = zombieKeyframes[selectedKF];
+    leftHandPose  = { ...kf.left };
+    rightHandPose = { ...kf.right };
+    loadPose(leftHandPose);
+    helpNote.textContent = 'KF #0 is the idle pose. Switch tabs, adjust each hand, then Set Keyframe saves BOTH hands together.';
+  }
+  updateKfList();
+  updateSegments();
+  draw();
+}
+
+modeSelect.addEventListener('change', () => switchMode(modeSelect.value));
+
+// ─── Hand tabs ───
+
+tabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    if (mode !== 'zombie' && mode !== 'knight') return;
+    stopPreview();
+
+    commitActivePose();
+
+    tabs.forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+
+    if (mode === 'knight') {
+      activeKnightItem = tab.dataset.hand;
+      const pose = activeKnightItem === 'sword' ? knightSwordPose : knightHandPose;
+      loadPose(pose);
+    } else {
+      activeHand = tab.dataset.hand;
+      const pose = activeHand === 'left' ? leftHandPose : rightHandPose;
+      loadPose(pose);
+    }
+
+    updateKfList();
+    draw();
+  });
+});
+
+// ─── Keyframe list ───
+
+function updateKfList() {
+  const kfs = getKeyframesRef();
+  let html = '';
+  for (let i = 0; i < kfs.length; i++) {
+    const kf = kfs[i];
+    const sel = i === selectedKF ? ' selected' : '';
+    let label;
+    if (mode === 'sword') {
+      label = `KF #${i} (${kf.offsetX},${kf.offsetY})`;
+    } else if (mode === 'knight') {
+      label = `KF #${i} (S:${kf.sword.offsetX},${kf.sword.offsetY} H:${kf.hand.offsetX},${kf.hand.offsetY})`;
+    } else {
+      label = `KF #${i} (L:${kf.left.offsetX},${kf.left.offsetY} R:${kf.right.offsetX},${kf.right.offsetY})`;
+    }
+    html += `<div class="kf-btn${sel}" data-idx="${i}">${label}<span class="kf-del" data-del="${i}">×</span></div>`;
+  }
+  kfList.innerHTML = html;
+}
+
+// ─── Segments ───
+
+function updateSegments() {
+  const segs = getSegmentsRef();
+  const n = getKeyframesRef().length;
+  if (n < 2) {
+    segContainer.innerHTML = '<div class="status" style="color:#555">Add at least 2 keyframes</div>';
+    return;
+  }
+  let html = '';
+  for (let i = 0; i < n - 1; i++) {
+    html += `<div class="seg-row">Frames KF #${i} → #${i+1}: <input type="number" class="seg-input" data-idx="${i}" min="1" max="120" value="${segs[i] || 10}"></div>`;
+  }
+  segContainer.innerHTML = html;
+  document.querySelectorAll('.seg-input').forEach(inp => {
+    inp.addEventListener('change', onSegChange);
+    inp.addEventListener('input', onSegChange);
+  });
+  updateFrameCount();
+}
+
+function onSegChange(e) {
+  const idx = parseInt(e.target.dataset.idx);
+  getSegmentsRef()[idx] = Math.max(1, parseInt(e.target.value) || 1);
+  updateFrameCount();
+}
+
+function updateFrameCount() {
+  totalFrameEl.textContent = totalFrames();
+}
+
+function updateOutput() {
+  const kfs = getKeyframesRef();
+  let text = '// Set a keyframe to begin\n';
+  if (kfs.length > 0) {
+    const name = animName.value.trim() || 'attack';
+    if (mode === 'sword') {
+      text = `// Animation: "${name}"\n`;
+      text += '{\n';
+      text += '  keyframes: [\n';
+      for (const kf of kfs) {
+        text += `    { offsetX: ${kf.offsetX}, offsetY: ${kf.offsetY}, scale: ${kf.scale}, rotation: ${kf.rotation} },\n`;
+      }
+      text += '  ],\n';
+      text += '  segments: [';
+      text += swordSegments.join(', ');
+      text += ']\n';
+      text += '}';
+    } else if (mode === 'knight') {
+      text = `// Animation: "${name}" (knight)\n`;
+      text += '{\n';
+      text += '  segments: [';
+      text += knightSegments.join(', ');
+      text += '],\n';
+      text += '  knight_sword: {\n';
+      text += '    keyframes: [\n';
+      for (const kf of kfs) {
+        text += `      { offsetX: ${kf.sword.offsetX}, offsetY: ${kf.sword.offsetY}, scale: ${kf.sword.scale}, rotation: ${kf.sword.rotation} },\n`;
+      }
+      text += '    ]\n';
+      text += '  },\n';
+      text += '  knight_hand: {\n';
+      text += '    keyframes: [\n';
+      for (const kf of kfs) {
+        text += `      { offsetX: ${kf.hand.offsetX}, offsetY: ${kf.hand.offsetY}, scale: ${kf.hand.scale}, rotation: ${kf.hand.rotation} },\n`;
+      }
+      text += '    ]\n';
+      text += '  }\n';
+      text += '}';
+    } else {
+      text = `// Animation: "${name}" (zombie)\n`;
+      text += '{\n';
+      text += '  segments: [';
+      text += zombieSegments.join(', ');
+      text += '],\n';
+      text += '  left_hand: {\n';
+      text += '    keyframes: [\n';
+      for (const kf of kfs) {
+        text += `      { offsetX: ${kf.left.offsetX}, offsetY: ${kf.left.offsetY}, scale: ${kf.left.scale}, rotation: ${kf.left.rotation} },\n`;
+      }
+      text += '    ]\n';
+      text += '  },\n';
+      text += '  right_hand: {\n';
+      text += '    keyframes: [\n';
+      for (const kf of kfs) {
+        text += `      { offsetX: ${kf.right.offsetX}, offsetY: ${kf.right.offsetY}, scale: ${kf.right.scale}, rotation: ${kf.right.rotation} },\n`;
+      }
+      text += '    ]\n';
+      text += '  }\n';
+      text += '}';
+    }
+  }
+  if (mode === 'knight' && kfs.length >= 2) {
+    text += '\n\n// Hitbox constants (paste into shared/data.js)\n';
+    text += 'BLADE_W: ' + hbBladeW + ',\n';
+    text += 'KNIGHT_BLADE_TIP_X: ' + hbTipX + ',\n';
+    text += 'KNIGHT_BLADE_TIP_Y: ' + hbTipY + ',\n';
+    text += 'KNIGHT_BLADE_HILT_X: ' + hbHiltX + ',\n';
+    text += 'KNIGHT_BLADE_HILT_Y: ' + hbHiltY + ',\n';
+  }
+  output.textContent = text;
+}
+
+function loadPose(kf) {
+  offsetX = kf.offsetX;
+  offsetY = kf.offsetY;
+  scale = kf.scale;
+  rotation = kf.rotation;
+  scaleSlider.value = scale;
+  rotSlider.value = rotation;
+  scaleVal.textContent = scale.toFixed(3);
+  rotVal.textContent = rotation.toFixed(2);
+}
+
+// ─── Auto-close: ensure last keyframe mirrors KF #0 ───
+
+function keyframesEqual(a, b) {
+  if (mode === 'sword') {
+    return a.offsetX === b.offsetX && a.offsetY === b.offsetY && a.scale === b.scale && a.rotation === b.rotation;
+  }
+  const ka = mode === 'knight' ? a.sword : a.left;
+  const kb = mode === 'knight' ? b.sword : b.left;
+  const la = mode === 'knight' ? a.hand : a.right;
+  const lb = mode === 'knight' ? b.hand : b.right;
+  return ka.offsetX === kb.offsetX && ka.offsetY === kb.offsetY && ka.scale === kb.scale && ka.rotation === kb.rotation
+      && la.offsetX === lb.offsetX && la.offsetY === lb.offsetY && la.scale === lb.scale && la.rotation === lb.rotation;
+}
+
+function stripClosingKeyframe() {
+  const kfs = getKeyframesRef();
+  if (kfs.length >= 2 && keyframesEqual(kfs[0], kfs[kfs.length - 1])) {
+    if (selectedKF === kfs.length - 1) selectedKF = kfs.length - 2;
+    kfs.pop();
+    return true;
+  }
+  return false;
+}
+
+function ensureClosingKeyframe() {
+  const kfs = getKeyframesRef();
+  if (kfs.length < 1) return;
+  if (kfs.length >= 2 && keyframesEqual(kfs[0], kfs[kfs.length - 1])) return; // already closed
+
+  const first = kfs[0];
+  if (mode === 'sword') {
+    kfs.push({ ...first });
+  } else if (mode === 'knight') {
+    kfs.push({ sword: { ...first.sword }, hand: { ...first.hand } });
+  } else {
+    kfs.push({ left: { ...first.left }, right: { ...first.right } });
+  }
+  rebuildSegments();
+}
+
+function afterKfChange() {
+  ensureClosingKeyframe();
+  updateKfList();
+  updateSegments();
+  draw();
+}
+
+// ─── Keyframe actions ───
+
+document.getElementById('setKfBtn').addEventListener('click', () => {
+  stripClosingKeyframe();
+
+  if (mode === 'sword') {
+    const pose = currentActivePose();
+    swordKeyframes.push(pose);
+    selectedKF = swordKeyframes.length - 1;
+  } else if (mode === 'knight') {
+    commitActivePose();
+    const combinedKF = {
+      sword: { ...knightSwordPose },
+      hand:  { ...knightHandPose }
+    };
+    knightKeyframes.push(combinedKF);
+    selectedKF = knightKeyframes.length - 1;
+  } else {
+    commitActivePose();
+    const combinedKF = {
+      left: { ...leftHandPose },
+      right: { ...rightHandPose }
+    };
+    zombieKeyframes.push(combinedKF);
+    selectedKF = zombieKeyframes.length - 1;
+  }
+
+  rebuildSegments();
+  afterKfChange();
+});
+
+kfList.addEventListener('click', (e) => {
+  const delBtn = e.target.closest('.kf-del');
+  if (delBtn) {
+    const idx = parseInt(delBtn.dataset.del);
+    const kfs = getKeyframesRef();
+    // Don't allow deleting KF #0
+    if (idx === 0) return;
+    kfs.splice(idx, 1);
+    if (selectedKF >= kfs.length) selectedKF = kfs.length - 1;
+    rebuildSegments();
+    afterKfChange();
+    if (kfs.length > 0 && selectedKF >= 0) {
+      loadKF(kfs[selectedKF]);
+    }
+    draw();
+    return;
+  }
+  const btn = e.target.closest('.kf-btn');
+  if (btn && !e.target.classList.contains('kf-del')) {
+    const idx = parseInt(btn.dataset.idx);
+    selectedKF = idx;
+    loadKF(getKeyframesRef()[idx]);
+    updateKfList();
+    draw();
+  }
+});
+
+function loadKF(kf) {
+  if (mode === 'sword') {
+    loadPose(kf);
+    return;
+  }
+  if (mode === 'knight') {
+    knightSwordPose = { ...kf.sword };
+    knightHandPose  = { ...kf.hand };
+    const target = activeKnightItem === 'sword' ? knightSwordPose : knightHandPose;
+    loadPose(target);
+    return;
+  }
+  // Zombie: both hands from the combined keyframe
+  leftHandPose  = { ...kf.left };
+  rightHandPose = { ...kf.right };
+  const target = activeHand === 'left' ? leftHandPose : rightHandPose;
+  loadPose(target);
+}
+
+// ─── Preview ───
+
+function previewLoop() {
+  if (!playing) return;
+  const kfs = getKeyframesRef();
+  if (kfs.length < 2) { stopPreview(); return; }
+  const total = totalFrames();
+  if (total === 0) { stopPreview(); return; }
+
+  // Update slider values from interpolated pose (for visual feedback)
+  const key = mode === 'knight' ? activeKnightItem : activeHand;
+  const handPose = getInterpolatedPose(playFrame, kfs, key);
+  if (handPose) {
+    offsetX = handPose.offsetX;
+    offsetY = handPose.offsetY;
+    scale = handPose.scale;
+    rotation = handPose.rotation;
+    scaleSlider.value = scale;
+    rotSlider.value = rotation;
+    scaleVal.textContent = scale.toFixed(3);
+    rotVal.textContent = rotation.toFixed(2);
+  }
+  playFrameEl.textContent = playFrame + 1;
+  draw();
+  playFrame++;
+  if (playFrame >= total) playFrame = 0;
+  animRAF = requestAnimationFrame(previewLoop);
+}
+
+function startPreview() {
+  if (playing) return;
+  const kfs = getKeyframesRef();
+  if (kfs.length < 2) return;
+  playing = true;
+  playFrame = 0;
+  playBtn.textContent = 'Playing...';
+  previewLoop();
+}
+
+function stopPreview() {
+  playing = false;
+  if (animRAF) { cancelAnimationFrame(animRAF); animRAF = null; }
+  playBtn.textContent = 'Play';
+  playFrameEl.textContent = '0';
+}
+
+function stopPreviewAndRestore() {
+  stopPreview();
+  if (selectedKF >= 0 && selectedKF < getKeyframesRef().length) {
+    loadKF(getKeyframesRef()[selectedKF]);
+  }
+  draw();
+}
+
+playBtn.addEventListener('click', startPreview);
+stopBtn.addEventListener('click', stopPreviewAndRestore);
+
+// ─── Export ───
+
+document.getElementById('saveBtn').addEventListener('click', () => {
+  const kfs = getKeyframesRef();
+  if (kfs.length < 2) { output.textContent = '// Need at least 2 keyframes'; return; }
+  const name = animName.value.trim() || 'attack';
+  let text;
+  if (mode === 'sword') {
+    text = `// Paste into shared/data.js → ANIMATIONS\n`;
+    text += `${name}: {\n`;
+    text += '  keyframes: [\n';
+    for (const kf of kfs) {
+      text += `    { offsetX: ${kf.offsetX}, offsetY: ${kf.offsetY}, scale: ${kf.scale}, rotation: ${kf.rotation} },\n`;
+    }
+    text += '  ],\n';
+    text += '  segments: [';
+    text += swordSegments.join(', ');
+    text += ']\n';
+    text += '}';
+  } else if (mode === 'knight') {
+    text = `// Paste into shared/data.js → KNIGHT_ANIMATIONS\n`;
+    text += `${name}: {\n`;
+    text += '  segments: [';
+    text += knightSegments.join(', ');
+    text += '],\n';
+    text += '  knight_sword: {\n';
+    text += '    keyframes: [\n';
+    for (const kf of kfs) {
+      text += `      { offsetX: ${kf.sword.offsetX}, offsetY: ${kf.sword.offsetY}, scale: ${kf.sword.scale}, rotation: ${kf.sword.rotation} },\n`;
+    }
+    text += '    ]\n';
+    text += '  },\n';
+    text += '  knight_hand: {\n';
+    text += '    keyframes: [\n';
+    for (const kf of kfs) {
+      text += `      { offsetX: ${kf.hand.offsetX}, offsetY: ${kf.hand.offsetY}, scale: ${kf.hand.scale}, rotation: ${kf.hand.rotation} },\n`;
+    }
+    text += '    ]\n';
+    text += '  }\n';
+    text += '}';
+  } else {
+    text = `// Paste into shared/data.js → ZOMBIE_ANIMATIONS\n`;
+    text += `${name}: {\n`;
+    text += '  segments: [';
+    text += zombieSegments.join(', ');
+    text += '],\n';
+    text += '  left_hand: {\n';
+    text += '    keyframes: [\n';
+    for (const kf of kfs) {
+      text += `      { offsetX: ${kf.left.offsetX}, offsetY: ${kf.left.offsetY}, scale: ${kf.left.scale}, rotation: ${kf.left.rotation} },\n`;
+    }
+    text += '    ]\n';
+    text += '  },\n';
+    text += '  right_hand: {\n';
+    text += '    keyframes: [\n';
+    for (const kf of kfs) {
+      text += `      { offsetX: ${kf.right.offsetX}, offsetY: ${kf.right.offsetY}, scale: ${kf.right.scale}, rotation: ${kf.right.rotation} },\n`;
+    }
+    text += '    ]\n';
+    text += '  }\n';
+    text += '}';
+  }
+  // Append hitbox constants
+  text += '\n\n// Hitbox constants (paste into shared/data.js)\n';
+  text += 'BLADE_W: ' + hbBladeW + ',\n';
+  text += 'KNIGHT_BLADE_TIP_X: ' + hbTipX + ',\n';
+  text += 'KNIGHT_BLADE_TIP_Y: ' + hbTipY + ',\n';
+  text += 'KNIGHT_BLADE_HILT_X: ' + hbHiltX + ',\n';
+  text += 'KNIGHT_BLADE_HILT_Y: ' + hbHiltY + ',\n';
+  output.textContent = text;
+  navigator.clipboard.writeText(text);
+  const orig = document.getElementById('saveBtn').textContent;
+  document.getElementById('saveBtn').textContent = 'Copied!';
+  setTimeout(() => { document.getElementById('saveBtn').textContent = orig; }, 2000);
+});
+
+// ─── Sprite sheet loading ───
+
+Promise.all([
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = '/images/spritesheet.png';
+  }),
+  fetch('/images/spritesheet.json').then(r => r.json()),
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = '/images/KnightSheet.png';
+  }),
+  fetch('/images/KnightSheet.json').then(r => r.json())
+]).then(([img, meta, kImg, kMeta]) => {
+  sheetImg = img;
+  sheetFrames = meta.frames;
+  knightSheet = kImg;
+  knightFrames = kMeta.frames;
+  draw();
+}).catch(() => {
+  ctx.fillStyle = '#e55';
+  ctx.font = '14px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText('Failed to load sprite sheets', CX, CY + 60);
+});
+
+// ─── Init ───
+
+loadPose(swordKeyframes[0]);
+draw();
+</script>
+</body>
+</html>
