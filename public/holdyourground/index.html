@@ -173,11 +173,6 @@
       <button id="waitingLobbyBtn" class="lobby-btn">Return to Lobby</button>
     </div>
 
-    <div id="phaseDisplay" class="hidden">
-      <span id="phaseName"></span>
-      <span id="phaseTimer"></span>
-    </div>
-
     <div id="hud" class="hud hidden">
       <div class="lb-title">Players</div>
       <div id="lbEntries"></div>
@@ -210,7 +205,11 @@
           </label>
         </div>
         <div id="adminSettings" class="hidden">
-          <div class="settings-divider"></div>
+          <div class="settings-row">
+          <span class="settings-label">Volume</span>
+          <input type="range" id="volumeSlider" min="0" max="100" value="80" style="flex:1;accent-color:#4ECDC4">
+        </div>
+        <div class="settings-divider"></div>
           <div class="settings-section-label">Admin</div>
           <div class="settings-row">
             <span class="settings-label">God-Mode</span>
@@ -279,9 +278,8 @@
     </div>
   </div>
 
-  <script src="/shared/data.js?v=4"></script>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-  <script type="module" src="/holdyourground/game.js?v=4"></script>
+  <script type="module" src="/holdyourground/game.js?v=6"></script>
   <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Teko:wght@700&family=Rajdhani:wght@700&display=swap" rel="stylesheet">
 </body>
 </html>

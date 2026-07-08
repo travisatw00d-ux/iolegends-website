@@ -1,4 +1,5 @@
 import { state } from './state.js';
+import { startIdleTransition } from './anims.js';
 
 const keys = {};
 const keyTimers = {};
@@ -53,7 +54,9 @@ export function setupInput(socket, canvas) {
     if (typeof e.getModifierState === 'function' && !e.getModifierState('Shift') && keys['Shift']) keys['Shift'] = false;
     keys[e.key] = true;
     syncKeyCase(e.key, true);
-    setKeyTimer(e.key);
+    if (!['w','W','a','A','s','S','d','D','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
+      setKeyTimer(e.key);
+    }
     if (e.key >= '1' && e.key <= '9') {
       const slot = parseInt(e.key) - 1;
       socket.emit('equip', { slot });
@@ -73,6 +76,13 @@ export function setupInput(socket, canvas) {
       state.showHudDebug = !state.showHudDebug;
       if (state.showHudDebug) { state.debugHitbox = false; state.showDiag = false; }
       console.log('[HYG] HUD debug:', state.showHudDebug);
+    }
+    if (e.key === ' ') {
+      e.preventDefault();
+      const newStyle = state.attackStyle === 'jab' ? 'swing' : 'jab';
+      startIdleTransition(newStyle);
+      socket.emit('toggleAttackStyle');
+      state.attackStyle = newStyle;
     }
   });
 
@@ -117,7 +127,7 @@ export function setupInput(socket, canvas) {
 
   canvas.addEventListener('mousedown', (e) => {
     if (e.button === 0 && state.screen === 'playing') {
-      socket.emit('attack', { facingAngle: state.players[state.myId]?.facingAngle || 0 });
+      socket.emit('attack', { facingAngle: state.players[state.myId]?.realAngle || state.players[state.myId]?.facingAngle || 0 });
     }
   });
 
