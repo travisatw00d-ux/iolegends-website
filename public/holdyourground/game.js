@@ -9,11 +9,12 @@ import {
   $, showScreen, joinGame, renderRoomList,
   showLoginForm, showRegisterForm, onAuth,
   leaveToMenu, hideEscapeMenu, showEscapeMenu,
-  hideStatsPanel,
+  hideStatsPanel, showCharStats, hideCharStats,
   getSelectedRoomId, getCurrentRooms
 } from './lib/ui.js';
 
 const socket = connect();
+window.socket = socket;
 
 showScreen('menu');
 
@@ -144,6 +145,7 @@ $.statsBtn.addEventListener('click', () => {
 });
 
 $.statsClose.addEventListener('click', hideStatsPanel);
+$.charStatsClose.addEventListener('click', hideCharStats);
 
 socket.on('admin:stats', (data) => {
   let html = '';
@@ -153,7 +155,15 @@ socket.on('admin:stats', (data) => {
   html += '<div>Lobby: ' + data.lobbyCount + '</div>';
   html += '<div>Version: ' + (data.build || '\u2014') + '</div>';
   html += '<div>Games (24h): ' + (data.gamesPlayed24h ?? '\u2014') + '</div>';
-  html += '<div>Players (24h): ' + (data.playersPlayed24h ?? '\u2014') + '</div>';
+  html += '<div>Players (24h): ' + (data.playersPlayed24h ?? '\u2014');
+  const names = data.playersPlayed24hList;
+  if (names && names.length > 0) {
+    html += ' <span id="players24hToggle" style="cursor:pointer;opacity:0.5;font-size:0.65rem">[show]</span>';
+    html += '<div id="players24hList" class="hidden" style="margin-top:2px;padding-left:8px;opacity:0.6">';
+    for (const n of names) html += '<div>' + n + '</div>';
+    html += '</div>';
+  }
+  html += '</div>';
   html += '<div id="onlinePlayersBtn" style="cursor:pointer;color:var(--accent);margin-top:6px;text-decoration:underline">Online Players: \u2014</div>';
 
   const roomCount = (data.rooms || []).length;
@@ -191,13 +201,21 @@ socket.on('admin:stats', (data) => {
   document.getElementById('onlinePlayersBtn')?.addEventListener('click', () => {
     socket.emit('admin:getPlayers');
   });
+  document.getElementById('players24hToggle')?.addEventListener('click', () => {
+    const el = document.getElementById('players24hList');
+    const toggle = document.getElementById('players24hToggle');
+    if (el && toggle) {
+      el.classList.toggle('hidden');
+      toggle.textContent = el.classList.contains('hidden') ? '[show]' : '[hide]';
+    }
+  });
   $.statsPanel.classList.remove('hidden');
 });
 
 socket.on('admin:serverStats', (data) => {
   const el = document.getElementById('statsServer');
   if (!el) return;
-  el.innerHTML = '<div>Memory: ' + data.memoryMB + ' MB <span style="opacity:0.5">(heap ' + data.heapMB + ' MB)</span></div>'
+  el.innerHTML = '<div>Memory: ' + data.memoryMB + ' MB <span style="opacity:0.5">(process RSS &#8212; VM ~200 MB)</span></div>'
     + '<div>CPU cores: ' + data.cpuCores + '</div>'
     + '<div>CPU lifetime: ' + data.cpuLoad + '</div>'
     + '<div>CPU (10s): ' + data.cpuRealtime + '</div>';
@@ -332,7 +350,9 @@ document.addEventListener('fullscreenchange', () => {
 });
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && state.screen === 'playing') {
+  if (e.key === 'Escape') {
+    if (!$.charStatsPanel.classList.contains('hidden')) { hideCharStats(); return; }
+    if (state.screen === 'playing') {
     e.preventDefault();
     if ($.escapeMenu.classList.contains('hidden')) {
       showEscapeMenu();
@@ -340,6 +360,7 @@ document.addEventListener('keydown', (e) => {
       hideEscapeMenu();
     }
     return;
+    }
   }
   if (e.key === 'F11') {
     e.preventDefault();
@@ -352,6 +373,13 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Tab') {
     e.preventDefault();
     toggleNWPopup();
+  }
+  if ((e.key === 'c' || e.key === 'C') && state.screen === 'playing') {
+    if ($.charStatsPanel.classList.contains('hidden')) {
+      showCharStats();
+    } else {
+      hideCharStats();
+    }
   }
 });
 

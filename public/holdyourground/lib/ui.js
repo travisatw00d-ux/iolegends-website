@@ -62,6 +62,9 @@ export const $ = {
   statsPanel: document.getElementById('statsPanel'),
   statsClose: document.getElementById('statsClose'),
   statsContent: document.getElementById('statsContent'),
+  charStatsPanel: document.getElementById('charStatsPanel'),
+  charStatsClose: document.getElementById('charStatsClose'),
+  charStatsContent: document.getElementById('charStatsContent'),
 };
 
 let selectedRoomId = null;
@@ -249,6 +252,73 @@ export function hideStatsPanel() {
   $.statsPanel.classList.add('hidden');
   if (state._playersRefreshTimer) { clearTimeout(state._playersRefreshTimer); state._playersRefreshTimer = null; }
   if (state._serverStatsTimer) { clearTimeout(state._serverStatsTimer); state._serverStatsTimer = null; }
+}
+
+export function showCharStats() {
+  $.charStatsPanel.classList.remove('hidden');
+  const me = state.players[state.myId];
+  const el = $.charStatsContent;
+  if (!el) return;
+  if (!me) { el.innerHTML = '<div style="text-align:center;opacity:0.5">Not in game</div>'; return; }
+  const itemName = (window.ITEMS && window.ITEMS[me.currentItem]) ? window.ITEMS[me.currentItem].name : me.currentItem;
+  const pts = state.statPoints || 0;
+  const build = (state.playerMeta[state.myId] && state.playerMeta[state.myId].playerBuild) || 'standard';
+  const buildDisplay = { standard: 'Standard', glassCannon: 'Glass Cannon', tank: 'Tank' };
+  let html = '';
+  html += '<div class="char-stat-row" style="color:var(--accent);font-weight:700"><span>Points to Spend</span><span>' + pts + '</span></div>';
+  html += '<div class="char-stat-row" style="font-size:0.7rem;opacity:0.5"><span>Build</span><span>' + (buildDisplay[build] || build) + '</span></div>';
+  html += '<div style="border-top:1px solid rgba(255,255,255,0.06);margin:6px 0"></div>';
+  html += '<div class="char-stat-row"><span class="char-stat-label">Player</span><span class="char-stat-value">' + (me.name || '\u2014') + '</span></div>';
+  html += '<div class="char-stat-row"><span class="char-stat-label">Level</span><span class="char-stat-value">' + (state.level || 1) + '</span></div>';
+  html += '<div class="char-stat-row"><span class="char-stat-label">Weapon</span><span class="char-stat-value">' + itemName + '</span></div>';
+  html += '<div style="border-top:1px solid rgba(255,255,255,0.06);margin:6px 0"></div>';
+  html += '<div class="char-stat-row"><span class="char-stat-label">EXP</span><span class="char-stat-value">' + state.exp + ' / ' + state.expToNext + '</span></div>';
+  html += '<div class="char-stat-row"><span class="char-stat-label">Gold</span><span class="char-stat-value">' + state.gold + '</span></div>';
+  html += '<div class="char-stat-row"><span class="char-stat-label">Kills</span><span class="char-stat-value">' + (me.kills || 0) + '</span></div>';
+  html += '<div style="border-top:1px solid rgba(255,255,255,0.06);margin:6px 0"></div>';
+  const spendable = ['maxHealth', 'maxEnergy', 'speed', 'attackDmg'];
+  const labels = { maxHealth: 'Max HP', maxEnergy: 'Max Energy', speed: 'Speed', attackDmg: 'Attack Dmg' };
+  const fmt = { maxHealth: v => v, maxEnergy: v => v, speed: v => v, attackDmg: v => v };
+  for (const s of spendable) {
+    const val = me[s] || ((s === 'maxHealth' || s === 'maxEnergy') ? 100 : 0);
+    html += '<div class="char-stat-row" style="cursor:pointer" data-stat="' + s + '">';
+    html += '<span class="char-stat-label">' + labels[s] + '</span>';
+    html += '<span class="char-stat-value">' + (fmt[s] ? fmt[s](val) : val) + (pts > 0 ? ' <span class="stat-plus" style="opacity:0.6">[+]</span>' : '') + '</span>';
+    html += '</div>';
+  }
+  html += '<div style="border-top:1px solid rgba(255,255,255,0.06);margin:6px 0"></div>';
+  const infoLabels = { attackSpeed: 'Attack Rate', turnSpeed: 'Turn Rate' };
+  const infoFmt = { attackSpeed: v => (600 / v).toFixed(2) + 'x', turnSpeed: v => (v / 12).toFixed(2) + 'x' };
+  for (const s of ['attackSpeed', 'turnSpeed']) {
+    const val = me[s] || (s === 'turnSpeed' ? 12 : 600);
+    html += '<div class="char-stat-row"><span class="char-stat-label">' + infoLabels[s] + '</span><span class="char-stat-value">' + (infoFmt[s] ? infoFmt[s](val) : val) + '</span></div>';
+  }
+  el.innerHTML = html;
+  if (pts > 0) {
+    el.querySelectorAll('[data-stat]').forEach(row => {
+      row.addEventListener('click', () => {
+        if (window.socket) {
+          window.socket.emit('spendStatPoint', { stat: row.dataset.stat });
+          const p = state.players[state.myId];
+          if (p) {
+            const scale = ({ standard: { mh:10,me:10,sp:0.03,ad:1,sc:16 }, glassCannon: { mh:5,me:10,sp:0.03,ad:2,sc:16 }, tank: { mh:15,me:10,sp:0.05,ad:0.5,sc:16 } })[build] || { mh:10,me:10,sp:0.03,ad:1,sc:16 };
+            switch (row.dataset.stat) {
+              case 'maxHealth': p.health = (+p.health || 100) + scale.mh; p.maxHealth = (+p.maxHealth || 100) + scale.mh; break;
+              case 'maxEnergy': p.energy = (+p.energy || 100) + scale.me; p.maxEnergy = (+p.maxEnergy || 100) + scale.me; break;
+              case 'speed': p.speed = Math.min(scale.sc, (+p.speed || 13) + scale.sp); break;
+              case 'attackDmg': p.attackDmg = (+p.attackDmg || 5) + scale.ad; break;
+            }
+          }
+          state.statPoints--;
+          showCharStats();
+        }
+      });
+    });
+  }
+}
+
+export function hideCharStats() {
+  $.charStatsPanel.classList.add('hidden');
 }
 
 function compute16x9(containerW, containerH) {
