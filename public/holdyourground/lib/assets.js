@@ -44,7 +44,7 @@ function preRenderMiniIcons() {
 }
 
 async function loadGameAssets() {
-  const [sheet, meta, kSheet, kMeta, hSheet, hMeta, layout, mSheet, mMeta, cSheet, cMeta] = await Promise.all([
+  const [sheet, meta, kSheet, kMeta, hSheet, hMeta, layout, mSheet, mMeta, cSheet, cMeta, kwSheet, kwMeta, rSheet, rMeta, nSheet, nMeta, iSheet, iMeta] = await Promise.all([
     loadImage('/images/spritesheet.png'),
     fetch('/images/spritesheet.json').then(r => r.json()),
     loadImage('/images/KnightSheet.png'),
@@ -55,7 +55,15 @@ async function loadGameAssets() {
     loadImage('/images/Minis.png'),
     fetch('/images/Minis.json').then(r => r.json()),
     loadImage('/images/CardSheet.png'),
-    fetch('/images/CardSheet.json').then(r => r.json())
+    fetch('/images/CardSheet.json').then(r => r.json()),
+    loadImage('/images/KnightWeapons.png'),
+    fetch('/images/KnightWeapons.json').then(r => r.json()),
+    loadImage('/images/Ringsheet.png'),
+    fetch('/images/Ringsheet.json').then(r => r.json()),
+    loadImage('/images/Necklacesheet.png'),
+    fetch('/images/Necklacesheet.json').then(r => r.json()),
+    loadImage('/images/ItemSheet.png'),
+    fetch('/images/ItemSheet.json').then(r => r.json())
   ]);
   state.spriteSheet = sheet;
   state.spriteFrames = meta.frames;
@@ -68,6 +76,22 @@ async function loadGameAssets() {
   state.miniFrames = mMeta.frames;
   state.cardSheet = cSheet;
   state.cardFrames = cMeta.frames;
+  // Flat item icons (inventory/equipment slots) — separate from knightSheet, which
+  // holds in-hand combat animation frames. See ITEM_ICONS in game-data.js for the
+  // itemId -> frame name mapping.
+  state.knightWeaponsSheet = kwSheet;
+  state.knightWeaponsFrames = kwMeta.frames;
+  state.ringSheet = rSheet;
+  state.ringFrames = rMeta.frames;
+  state.necklaceSheet = nSheet;
+  state.necklaceFrames = nMeta.frames;
+  // Misc world/currency item icons (goldcoin.png, T1HealthPotion.png, ...) —
+  // 2026-07-13, added for the gold-coin drop mechanic. Same "flat icon
+  // sheet" convention as ringSheet/necklaceSheet above, referenced directly
+  // by frame name in render.js/ui.js (gold isn't a bag item, so it doesn't
+  // go through ITEM_ICONS/game-data.js like equipment icons do).
+  state.itemSheet = iSheet;
+  state.itemFrames = iMeta.frames;
 
   const gearFrame = state.hudFrames?.['settingsgear.png']?.frame;
   if (gearFrame) {
@@ -109,7 +133,12 @@ export async function enterGame(socket) {
   }
   state._joinedEnded = false;
   state.screen = 'playing';
-  state.level = 1; state.exp = 0; state.expToNext = 100; state.gold = 0;
+  // currencyBronze deliberately NOT reset here — see the matching comment
+  // in net-events.js's 'eliminated'/'joinedGame' handlers. Its correct
+  // value is already set by onAuth() at login (before any room join) and
+  // kept current via 'accountUpdate'; zeroing it on every enterGame() was
+  // the root cause of currency appearing to reset on "Play Again".
+  state.level = 1; state.exp = 0; state.expToNext = 100;
   state.zombies = []; state.activePlayerCount = 0;
   state.dmgNumbers = []; state.zombieAnims = {}; state.waveComposition = null;
   state.localAnim = null; state._mirrorSword = false; state.lbSig = ''; state.hotSig = '';

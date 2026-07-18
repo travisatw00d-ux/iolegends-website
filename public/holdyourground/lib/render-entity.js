@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { MOB_TYPES, BLADE_W, ZOMBIE_VISUALS, KNIGHT_VISUALS } from './game-data.js';
+import { MOB_TYPES, BLADE_W, ZOMBIE_VISUALS, ZOMBIE_ANIMATIONS, GOBLIN_VISUALS, GOBLIN_ANIMATIONS, KNIGHT_VISUALS } from './game-data.js';
 import {
   updateLean, getMovementBob, getBreathScale,
   getKnightIdleVis, getKnightInterpolatedVis, getKnightRemoteVis,
@@ -90,9 +90,51 @@ function drawKnightSword(ctx, p, sx, sy) {
   ctx.restore();
 }
 
+// Unarmed look: drawn instead of drawKnightSword() when p.currentItem is
+// empty (weapon slot dragged off — see drawPlayer() below). Idle pose comes
+// from KNIGHT_VISUALS[style].knight_right_hand (tunable via "Knight Items" >
+// "Right Hand" in public/position-tool.html). Attack animation reuses the
+// 'knight_sword' data slot rather than a separate key — see the unarmed_combo
+// comment block in game-data.js for why (short version: the server's hit
+// detection and this whole interpolation pipeline are hardcoded to read
+// 'knight_sword' as "whatever's in the right hand," armed or not — only the
+// sprite drawn here differs). drawKnightSword() and drawKnightRightHand() are
+// mutually exclusive per frame (drawPlayer() branches on p.currentItem), so
+// there's no conflict reading the same slot.
+function drawKnightRightHand(ctx, p, sx, sy) {
+  // knight_right_hand is unarmed-exclusive (only ever drawn when !p.currentItem)
+  // and getKnightIdleVis always resolves it to the basic jab pose regardless of
+  // the jab/swing toggle, for local and remote alike — no per-player style
+  // override needed here.
+  let vis = getKnightIdleVis('knight_right_hand');
+  if (p.id === state.myId && state.localAnim?.type === 'knight') { const animVis = getKnightInterpolatedVis('knight_sword'); if (animVis) vis = animVis; }
+  if (p.id !== state.myId) { const animVis = getKnightRemoteVis('knight_sword', p); if (animVis) vis = animVis; }
+  if (!vis) return;
+  const angle = getDrawAngle(p);
+  const cos = Math.cos(angle), sin = Math.sin(angle);
+  const rx = vis.offsetX * cos - vis.offsetY * sin;
+  const ry = vis.offsetX * sin + vis.offsetY * cos;
+  const entry = state.knightFrames?.['T1KnightRightHand.png'];
+  const frame = entry?.frame;
+  if (!frame) return;
+  const sw = frame.w * vis.scale, sh = frame.h * vis.scale;
+  ctx.save();
+  ctx.translate(sx + rx, sy + ry);
+  ctx.rotate(angle + (vis.rotation || 0));
+  ctx.drawImage(getSpriteFromSheet(state.knightSheet, sw, sh, frame), -sw / 2, -sh / 2, sw, sh);
+  ctx.restore();
+}
+
 function drawKnightHand(ctx, p, sx, sy) {
   let vis = getKnightIdleVis('knight_hand');
-  if (p.id !== state.myId) { const s = state.playerMeta[p.id]?.attackStyle; if (s) vis = getKnightIdleVis('knight_hand', s); }
+  if (p.id !== state.myId) {
+    // Remote unarmed always shows the basic jab-pose left fist too, regardless
+    // of their jab/swing toggle — same rule as the local player (forced inside
+    // getKnightIdleVis via its own "me" check, which only covers the local
+    // player, hence the explicit override here for remotes).
+    const s = p.currentItem ? (state.playerMeta[p.id]?.attackStyle || 'jab') : 'jab';
+    vis = getKnightIdleVis('knight_hand', s);
+  }
   if (p.id === state.myId && state.localAnim?.type === 'knight') { const animVis = getKnightInterpolatedVis('knight_hand'); if (animVis) vis = animVis; }
   if (p.id !== state.myId) { const animVis = getKnightRemoteVis('knight_hand', p); if (animVis) vis = animVis; }
   if (!vis) return;
@@ -114,24 +156,63 @@ function drawKnightHand(ctx, p, sx, sy) {
 function getMobSpritePrefix(z) {
   const mt = MOB_TYPES[z.mobType];
   if (mt && mt.id === 'troll') return 'troll';
+  if (mt && mt.id === 'goblin') return 'goblin';
   return 'zombie';
 }
 
 function drawZombieHand(ctx, z, szx, szy, angle, handKey) {
   const prefix = getMobSpritePrefix(z);
+  if (prefix === 'goblin') {
+    // Goblin only has a left hand sprite — no right_hand art exists.
+    if (handKey !== 'left_hand') return;
+    const frame = state.spriteFrames?.['GoblinLeftHand.png']?.frame;
+    if (!frame) return;
+    let vis = GOBLIN_VISUALS?.left_hand;
+    const animState = state.zombieAnims?.[z.id];
+    if (animState) { const animVis = getZombieAnimVis('left_hand', animState, GOBLIN_ANIMATIONS); if (animVis) vis = animVis; }
+    if (!vis) return;
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+    const rx = vis.offsetX * cos - vis.offsetY * sin;
+    const ry = vis.offsetX * sin + vis.offsetY * cos;
+    const sw = frame.w * vis.scale, sh = frame.h * vis.scale;
+    ctx.save();
+    ctx.translate(szx + rx, szy + ry);
+    ctx.rotate(angle + (vis.rotation || 0));
+    ctx.drawImage(getSpriteFromSheet(state.spriteSheet, sw, sh, frame), -sw / 2, -sh / 2, sw, sh);
+    ctx.restore();
+    return;
+  }
   const isTroll = prefix === 'troll';
   const fname = handKey === 'left_hand' ? (isTroll ? 'trolllefthand.png' : 'zombielefthand.png') : (isTroll ? 'trollrighthand.png' : 'zombierighthand.png');
   const frame = state.spriteFrames?.[fname]?.frame;
   if (!frame) return;
   let vis = ZOMBIE_VISUALS?.[handKey];
   const animState = state.zombieAnims?.[z.id];
-  if (animState) { const animVis = getZombieAnimVis(handKey, animState); if (animVis) vis = animVis; }
+  if (animState) { const animVis = getZombieAnimVis(handKey, animState, ZOMBIE_ANIMATIONS); if (animVis) vis = animVis; }
   if (!vis) return;
   const cos = Math.cos(angle), sin = Math.sin(angle);
   const rx = vis.offsetX * cos - vis.offsetY * sin;
   const ry = vis.offsetX * sin + vis.offsetY * cos;
   const handScale = isTroll ? 1.1 : 1.0;
   const sw = frame.w * vis.scale * handScale, sh = frame.h * vis.scale * handScale;
+  ctx.save();
+  ctx.translate(szx + rx, szy + ry);
+  ctx.rotate(angle + (vis.rotation || 0));
+  ctx.drawImage(getSpriteFromSheet(state.spriteSheet, sw, sh, frame), -sw / 2, -sh / 2, sw, sh);
+  ctx.restore();
+}
+
+function drawGoblinSword(ctx, z, szx, szy, angle) {
+  const frame = state.spriteFrames?.['GoblinSword.png']?.frame;
+  if (!frame) return;
+  let vis = GOBLIN_VISUALS?.sword;
+  const animState = state.zombieAnims?.[z.id];
+  if (animState) { const animVis = getZombieAnimVis('sword', animState, GOBLIN_ANIMATIONS); if (animVis) vis = animVis; }
+  if (!vis) return;
+  const cos = Math.cos(angle), sin = Math.sin(angle);
+  const rx = vis.offsetX * cos - vis.offsetY * sin;
+  const ry = vis.offsetX * sin + vis.offsetY * cos;
+  const sw = frame.w * vis.scale, sh = frame.h * vis.scale;
   ctx.save();
   ctx.translate(szx + rx, szy + ry);
   ctx.rotate(angle + (vis.rotation || 0));
@@ -201,7 +282,15 @@ export function drawPlayer(ctx, p, sx, sy, alpha, topKills) {
   const lean = updateLean(p);
 
   if (knightFrame) {
-    drawKnightSword(ctx, p, sx + bob.x, sy + bob.y);
+    // Empty weapon slot -> bare fist instead of the sword (see
+    // drawKnightRightHand() above). p.currentItem is the weapon-slot source
+    // of truth (mirrors info.equipment.weapon) and is reliably null/filled
+    // for every player, not just state.myId, per the playerInfo/state sync.
+    if (p.currentItem) {
+      drawKnightSword(ctx, p, sx + bob.x, sy + bob.y);
+    } else {
+      drawKnightRightHand(ctx, p, sx + bob.x, sy + bob.y);
+    }
     drawKnightHand(ctx, p, sx + bob.x, sy + bob.y);
   } else {
     drawSword(ctx, p, sx, sy);
@@ -236,7 +325,7 @@ export function drawPlayer(ctx, p, sx, sy, alpha, topKills) {
 
 export function drawZombie(ctx, z, szx, szy, zombieAngle) {
   const prefix = getMobSpritePrefix(z);
-  const headKey = prefix === 'troll' ? 'trollhead.png' : 'zombiehead.png';
+  const headKey = prefix === 'troll' ? 'trollhead.png' : prefix === 'goblin' ? 'GoblinHead.png' : 'zombiehead.png';
   const headFrame = state.spriteFrames?.[headKey]?.frame;
   if (headFrame) {
     const headScale = prefix === 'troll' ? 1.1 : 1.0;
@@ -247,8 +336,13 @@ export function drawZombie(ctx, z, szx, szy, zombieAngle) {
     ctx.drawImage(getSpriteFromSheet(state.spriteSheet, headFrame.w * sz, headFrame.h * sz, headFrame), -(headFrame.w * sz) / 2, -(headFrame.h * sz) / 2, headFrame.w * sz, headFrame.h * sz);
     ctx.restore();
   }
-  drawZombieHand(ctx, z, szx, szy, zombieAngle, 'left_hand');
-  drawZombieHand(ctx, z, szx, szy, zombieAngle, 'right_hand');
+  if (prefix === 'goblin') {
+    drawZombieHand(ctx, z, szx, szy, zombieAngle, 'left_hand');
+    drawGoblinSword(ctx, z, szx, szy, zombieAngle);
+  } else {
+    drawZombieHand(ctx, z, szx, szy, zombieAngle, 'left_hand');
+    drawZombieHand(ctx, z, szx, szy, zombieAngle, 'right_hand');
+  }
   ctx.fillStyle = '#ff6666';
   ctx.fillText(z.label || 'zombie', szx, szy - 30);
   drawHealthBar(ctx, szx, szy - 24, 30, 3, z.health, z.maxHealth);

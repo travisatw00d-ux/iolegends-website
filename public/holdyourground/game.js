@@ -10,6 +10,8 @@ import {
   showLoginForm, showRegisterForm, onAuth,
   leaveToMenu, hideEscapeMenu, showEscapeMenu,
   hideStatsPanel, showCharStats, hideCharStats,
+  showInventory, hideInventory,
+  showMasterChest, hideMasterChest,
   getSelectedRoomId, getCurrentRooms
 } from './lib/ui.js';
 
@@ -146,6 +148,8 @@ $.statsBtn.addEventListener('click', () => {
 
 $.statsClose.addEventListener('click', hideStatsPanel);
 $.charStatsClose.addEventListener('click', hideCharStats);
+$.inventoryClose.addEventListener('click', hideInventory);
+$.masterChestClose.addEventListener('click', hideMasterChest);
 
 socket.on('admin:stats', (data) => {
   let html = '';
@@ -153,9 +157,9 @@ socket.on('admin:stats', (data) => {
   html += '<div>Active Rooms: ' + data.activeRooms + '</div>';
   html += '<div>Total Players: ' + data.totalPlayers + '</div>';
   html += '<div>Lobby: ' + data.lobbyCount + '</div>';
-  html += '<div>Version: ' + (data.build || '\u2014') + '</div>';
-  html += '<div>Games (24h): ' + (data.gamesPlayed24h ?? '\u2014') + '</div>';
-  html += '<div>Players (24h): ' + (data.playersPlayed24h ?? '\u2014');
+  html += '<div>Version: ' + (data.build || '—') + '</div>';
+  html += '<div>Games (24h): ' + (data.gamesPlayed24h ?? '—') + '</div>';
+  html += '<div>Players (24h): ' + (data.playersPlayed24h ?? '—');
   const pnames = data.playersPlayed24hList;
   if (pnames && pnames.length > 0) {
     html += ' <span id="players24hToggle" style="cursor:pointer;opacity:0.5;font-size:0.65rem">[show]</span>';
@@ -164,7 +168,7 @@ socket.on('admin:stats', (data) => {
     html += '</div>';
   }
   html += '</div>';
-  html += '<div>Visitors (24h): ' + (data.visitors24h ?? '\u2014');
+  html += '<div>Visitors (24h): ' + (data.visitors24h ?? '—');
   const vnames = data.visitors24hList;
   if (vnames && vnames.length > 0) {
     html += ' <span id="visitors24hToggle" style="cursor:pointer;opacity:0.5;font-size:0.65rem">[show]</span>';
@@ -173,11 +177,11 @@ socket.on('admin:stats', (data) => {
     html += '</div>';
   }
   html += '</div>';
-  html += '<div id="onlinePlayersBtn" style="cursor:pointer;color:var(--accent);margin-top:6px;text-decoration:underline">Online Players: \u2014</div>';
+  html += '<div id="onlinePlayersBtn" style="cursor:pointer;color:var(--accent);margin-top:6px;text-decoration:underline">Online Players: —</div>';
 
   const roomCount = (data.rooms || []).length;
   if (roomCount > 0) {
-    html += '<div class="stats-rooms-toggle" id="statsRoomsToggle">' + roomCount + ' room' + (roomCount > 1 ? 's' : '') + ' \u2014 show details</div>';
+    html += '<div class="stats-rooms-toggle" id="statsRoomsToggle">' + roomCount + ' room' + (roomCount > 1 ? 's' : '') + ' — show details</div>';
     html += '<div id="statsRoomDetails" class="hidden">';
     for (const r of (data.rooms || [])) {
       html += '<div style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,0.05)">';
@@ -364,11 +368,24 @@ document.addEventListener('fullscreenchange', () => {
     socket.emit('fullscreen', { enabled: false });
     socket.emit('cameraZoom', { zoom: state.cameraZoom, viewW: state.viewW, viewH: state.viewH });
   }
+  // Both popups size/position themselves off state.viewW (see ui.js), which just
+  // changed above — reposition them immediately if either is already open instead
+  // of leaving them at their pre-toggle size/spot until next open.
+  if (!$.charStatsPanel.classList.contains('hidden')) showCharStats();
+  if (!$.inventoryPanel.classList.contains('hidden')) showInventory();
+  if (!$.masterChestPanel.classList.contains('hidden')) showMasterChest();
 });
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (!$.charStatsPanel.classList.contains('hidden')) { hideCharStats(); return; }
+    // Chest checked before inventory (2026-07-14) — the two now always open
+    // together (see hideMasterChest()'s pairing in ui.js), so if the chest is
+    // open, Escape needs to go through hideMasterChest() to close both,
+    // rather than hitting the inventory branch first and leaving the chest
+    // open by itself.
+    if (!$.masterChestPanel.classList.contains('hidden')) { hideMasterChest(); return; }
+    if (!$.inventoryPanel.classList.contains('hidden')) { hideInventory(); return; }
     if (state.screen === 'playing') {
     e.preventDefault();
     if ($.escapeMenu.classList.contains('hidden')) {
@@ -396,6 +413,14 @@ document.addEventListener('keydown', (e) => {
       showCharStats();
     } else {
       hideCharStats();
+    }
+  }
+  if ((e.key === 'i' || e.key === 'I') && state.screen === 'playing') {
+    e.preventDefault();
+    if ($.inventoryPanel.classList.contains('hidden')) {
+      showInventory();
+    } else {
+      hideInventory();
     }
   }
 });

@@ -7,6 +7,7 @@ import { callbacks } from './callback-registry.js';
 import { playSound, playMobSound, loadSounds } from './audio.js';
 import { ensureAssets, enterGame } from './assets.js';
 import { showNWPopup, toggleNWPopup, resetWavePopup, hideNWPopup, populateNWRows, updateNWCounts } from './next-wave-popup.js';
+import { hideCharStats, hideInventory, showCharStats, showInventory, showMasterChest, hideDropTooltip, $ } from './ui.js';
 import { ZOMBIE_ANIMATIONS, MOB_TYPES } from './game-data.js';
 
 export function registerEvents(socket) {
@@ -24,9 +25,34 @@ export function registerEvents(socket) {
     state.worldH = arenaHeight;
   });
 
+  // World item drops (loot from zombie kills — server/item-drops.js).
+  // itemDropsInit seeds the current list on join (room.getItemDropsList());
+  // itemDropAdded/itemDropRemoved keep it live afterward, broadcast
+  // room-wide since any player can see and click-pick-up any drop.
+  socket.on('itemDropsInit', ({ drops }) => {
+    state.itemDrops = {};
+    for (const d of drops) state.itemDrops[d.id] = d;
+  });
+  socket.on('itemDropAdded', (d) => { state.itemDrops[d.id] = d; });
+  socket.on('itemDropRemoved', ({ id }) => {
+    delete state.itemDrops[id];
+    // Covers the case where the drop under the cursor got picked up (by us
+    // or someone else) without the mouse moving afterward — input.js's own
+    // hover-tracking only re-checks on mousemove, so the tooltip would
+    // otherwise keep showing a now-gone item until the next mouse jiggle.
+    hideDropTooltip();
+  });
+  // Full wipe at the start of the next wave (see room.js's clearItemDrops(),
+  // called from phase-manager.js's daytime->nighttime transition) — one
+  // broadcast instead of replaying individual itemDropRemoved events.
+  socket.on('itemDropsCleared', () => {
+    state.itemDrops = {};
+    hideDropTooltip();
+  });
+
   socket.on('joined', async () => {
     resetKeys();
-    state.players = {}; state.zombies = []; state.activePlayerCount = 0; state.lobbyPlayers = [];
+    state.players = {}; state.zombies = []; state.itemDrops = {}; state.activePlayerCount = 0; state.lobbyPlayers = [];
     state.lbSig = ''; state.matchPhase = null; state.phaseTimer = 0; state.isSpectator = false;
     state.isDeadSpectating = false; state.queuedPlayers = []; state.spectatingTargetIndex = 0;
     state.localAnim = null; state._mirrorSword = false; state.currentWave = 0; state.serverLevel = 0;
@@ -106,10 +132,34 @@ export function registerEvents(socket) {
         const p = {
           id, x, y, health, alive, attacking, facingAngle, attackLockedAngle, attackStartTime, kills, lvl, comboStep, comboChainWindow, name, isSpectator,
           energy, maxEnergy,
-          color: meta.color || '#888888', currentItem: meta.currentItem || 'wooden_sword',
+          color: meta.color || '#888888',
+          // currentItem can be legitimately null (weapon slot dragged empty) —
+          // only fall back to the starter sword when meta has never been set at
+          // all (brand new player, no playerInfo received yet). `!== undefined`
+          // instead of `||` so an intentional null survives every rebuild below.
+          currentItem: meta.currentItem !== undefined ? meta.currentItem : 'wooden_sword',
           inventory: meta.inventory || ['wooden_sword'], maxHealth: meta.maxHealth || 100,
           speed: meta.speed != null ? meta.speed : 13, attackDmg: meta.attackDmg != null ? meta.attackDmg : 5,
-          attackSpeed: meta.attackSpeed != null ? meta.attackSpeed : 800
+          attackSpeed: meta.attackSpeed != null ? meta.attackSpeed : 800,
+          // Equipment/bag/derived-stat fields aren't part of the binary protocol
+          // at all — they only ever come from playerMeta (the last playerInfo
+          // payload). This whole `p` object replaces state.players[id] on every
+          // snapshot (~18x/sec), so these must be re-applied here every time or
+          // they vanish the moment the next snapshot arrives after a drag/equip.
+          // masterChest (2026-07-14) was missed here when drag-in was added —
+          // it was harmless while the chest was always empty, but the moment it
+          // could hold real items this became the exact same bug the gotcha
+          // below describes: a move landed correctly via playerInfo, then got
+          // wiped ~55ms later by the next binary snapshot rebuilding this
+          // object without it, so the item "vanished" the next time the panel
+          // re-rendered (e.g. closing and reopening the chest).
+          equipment: meta.equipment, inventorySlots: meta.inventorySlots, masterChest: meta.masterChest,
+          defense: meta.defense != null ? meta.defense : 0,
+          fortune: meta.fortune != null ? meta.fortune : 0,
+          luck: meta.luck != null ? meta.luck : 0,
+          healthRegen: meta.healthRegen != null ? meta.healthRegen : 0,
+          turnSpeed: meta.turnSpeed != null ? meta.turnSpeed : 18,
+          playerClass: meta.playerClass || 'knight'
         };
         if (old && Math.abs(x - old.x) < 200 && Math.abs(y - old.y) < 200) { p.px = old.x; p.py = old.y; p.pfacingAngle = old.facingAngle; }
         else { p.px = x; p.py = y; p.pfacingAngle = facingAngle; }
@@ -186,13 +236,41 @@ export function registerEvents(socket) {
     if (state.players[info.id]) {
       const p = state.players[info.id];
       p.name = info.name; p.color = info.color || '#888888';
-      p.currentItem = info.currentItem || 'wooden_sword'; p.maxHealth = info.maxHealth || 100;
+      p.currentItem = info.currentItem !== undefined ? info.currentItem : 'wooden_sword'; p.maxHealth = info.maxHealth || 100;
+      p.equipment = info.equipment || p.equipment;
+      p.inventorySlots = info.inventorySlots || p.inventorySlots;
+      p.masterChest = info.masterChest || p.masterChest;
+      p.defense = info.defense != null ? info.defense : 0;
+      p.fortune = info.fortune != null ? info.fortune : 0;
+      p.luck = info.luck != null ? info.luck : 0;
+      p.healthRegen = info.healthRegen != null ? info.healthRegen : 0;
       p.speed = info.speed != null ? info.speed : 13;
       p.attackDmg = info.attackDmg != null ? info.attackDmg : 5;
       p.attackSpeed = info.attackSpeed != null ? info.attackSpeed : 800;
       p.turnSpeed = info.turnSpeed != null ? info.turnSpeed : 18;
       state.lbSig = '';
       updateLeaderboard();
+      // Re-render the inventory panel's slots so a drag-and-drop move (or an
+      // item pickup) shows up immediately while the panel is open, instead of
+      // only refreshing the next time it's opened. showInventory() is cheap
+      // (a few DOM writes) and only runs when the panel is actually visible.
+      if (info.id === state.myId && $.inventoryPanel && !$.inventoryPanel.classList.contains('hidden')) {
+        showInventory();
+      }
+      // Same idea for Char Stats — equipping/unequipping anything changes
+      // attackDmg/attackSpeed/defense/etc, and the panel should reflect that
+      // the instant it happens (e.g. dragging the sword off the weapon slot),
+      // not just the next time it's reopened.
+      if (info.id === state.myId && $.charStatsPanel && !$.charStatsPanel.classList.contains('hidden')) {
+        showCharStats();
+      }
+      // Master chest (2026-07-14, drag-in wired 2026-07-14) — same
+      // live-refresh idea as inventory above: a moveItem/dropItem into or out
+      // of the chest shows up immediately while the panel's open instead of
+      // waiting for the next open.
+      if (info.id === state.myId && $.masterChestPanel && !$.masterChestPanel.classList.contains('hidden')) {
+        showMasterChest();
+      }
     }
   });
   socket.on('playerLeft', (id) => { delete state.playerMeta[id]; });
@@ -203,7 +281,17 @@ export function registerEvents(socket) {
     const active = state.matchPhase === 'daytime' || state.matchPhase === 'nighttime' || state.matchPhase === 'intermission' || state.matchPhase === 'waveOver';
     if (active) {
       state.isDeadSpectating = true;
-      state.screen = 'playing'; state.level = 1; state.exp = 0; state.expToNext = 100; state.gold = 0;
+      // currencyBronze deliberately NOT reset here (2026-07-13, fixing a
+      // real bug) — unlike level/exp, the server never actually zeroes
+      // p.currencyBronze at these points (see room.js/join-manager.js/
+      // phase-manager.js — currency carries across matches within a
+      // session), so locally zeroing the CLIENT's copy was always wrong.
+      // Worse, in some server paths the corrective `accountUpdate` carrying
+      // the real value gets emitted BEFORE this event, so the local zero
+      // below used to clobber it right back to 0 a moment later. Leaving it
+      // untouched here just keeps showing the last known-correct value,
+      // which is already right since the server never changed it.
+      state.screen = 'playing'; state.level = 1; state.exp = 0; state.expToNext = 100;
     } else {
       stopRender();
       document.getElementById('elimKills').textContent = `Kills: ${kills}`;
@@ -239,12 +327,15 @@ export function registerEvents(socket) {
     if (nearest && nearDist < 60) playMobSound(nearest.mobType, 'hit', { x: x, y: y });
   });
 
-  socket.on('accountUpdate', ({ exp, level, expToNext, gold, statPoints }) => {
-    state.exp = exp; state.level = level; state.expToNext = expToNext; state.gold = gold;
+  socket.on('accountUpdate', ({ exp, level, expToNext, currencyBronze, statPoints }) => {
+    state.exp = exp; state.level = level; state.expToNext = expToNext; state.currencyBronze = currencyBronze;
     if (statPoints != null) state.statPoints = statPoints;
   });
 
   socket.on('attackStyleChanged', ({ attackStyle }) => {
+    if (attackStyle && attackStyle !== state.attackStyle) {
+      startIdleTransition(attackStyle);
+    }
     state.attackStyle = attackStyle;
   });
 
@@ -263,7 +354,10 @@ export function registerEvents(socket) {
     state.isSpectator = false;
     state.isDeadSpectating = !!isDead;
     state.queuedPlayers = (state.queuedPlayers || []).filter(q => q.id !== state.myId);
-    state.screen = 'playing'; state.level = 1; state.exp = 0; state.expToNext = 100; state.gold = 0;
+    // currencyBronze deliberately NOT reset here — see the matching comment
+    // on the 'eliminated' handler above; this was the actual cause of
+    // currency appearing to reset to 0 on "Play Again" (2026-07-13 fix).
+    state.screen = 'playing'; state.level = 1; state.exp = 0; state.expToNext = 100;
     updateJoinButton();
     stopRender();
     startRender(socket);
@@ -356,8 +450,12 @@ export function registerEvents(socket) {
         updateJoinButton();
         return;
       }
+      hideCharStats();
+      hideInventory();
       document.getElementById('lobbyScreen').classList.remove('hidden');
-      document.getElementById('resultsOverlay').classList.remove('hidden');
+    hideCharStats();
+    hideInventory();
+    document.getElementById('resultsOverlay').classList.remove('hidden');
       document.getElementById('resultsTimerValue').textContent = Math.ceil(timer / 1000);
       state.screen = 'results';
     } else if (phase !== 'waiting' && (state.screen === 'lobby' || state.screen === 'joining' || state.screen === 'results')) {
@@ -390,7 +488,7 @@ export function registerEvents(socket) {
     state.waveComposition = data;
     state._wavePopupTriggered = false;
     if (state.screen !== 'playing') return;
-    const sl = data.serverLevel || '\u2014';
+    const sl = data.serverLevel || '—';
     document.getElementById('nwpSL').textContent = sl;
     document.getElementById('dSL').textContent = sl;
     document.getElementById('nwpWave').textContent = data.wave;

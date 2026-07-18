@@ -4,11 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hold Your Ground</title>
-  <link rel="stylesheet" href="/style.css?v=1">
+  <link rel="stylesheet" href="/style.css?v=2">
 </head>
 <body>
   <div id="wrapper">
     <canvas id="canvas"></canvas>
+    <div id="dropTooltip" class="item-tooltip drop-tooltip hidden"></div>
+    <!-- Lives directly in #wrapper (not nested in #inventoryPanel) so the
+         panel's overflow:hidden can never clip it — it needs to be free to
+         extend past the panel's bottom/right edge. positionItemTooltip() in
+         ui.js positions it relative to #wrapper, same as positionDropTooltip(). -->
+    <div id="itemTooltip" class="item-tooltip hidden"></div>
 
     <div id="menu" class="overlay">
       <h1>Hold Your Ground</h1>
@@ -243,13 +249,23 @@
         </div>
       </div>
     </div>
-
     <div id="charStatsPanel" class="char-stats-panel hidden">
-      <div class="char-stats-header">
-        <span>Character Stats</span>
-        <button id="charStatsClose">&times;</button>
-      </div>
+      <canvas id="charStatsCanvas"></canvas>
+      <button id="charStatsClose">&times;</button>
       <div id="charStatsContent"></div>
+    </div>
+    <div id="inventoryPanel" class="inventory-panel hidden">
+      <div id="inventoryContent"><canvas id="inventoryCanvas"></canvas></div>
+      <div id="inventorySlotsLayer"></div>
+      <button id="inventoryClose" class="inventory-close">&times;</button>
+    </div>
+    <!-- Master chest panel (2026-07-14) — reuses .inventory-panel/.inventory-close
+         since it's the exact same dimensions/behavior as inventoryPanel above, just
+         a different background frame (mctab.png) and slot set (ChestSlot1..16). -->
+    <div id="masterChestPanel" class="inventory-panel hidden">
+      <div id="masterChestContent"><canvas id="masterChestCanvas"></canvas></div>
+      <div id="masterChestSlotsLayer"></div>
+      <button id="masterChestClose" class="inventory-close">&times;</button>
     </div>
 
     <!-- Next Wave Popup -->
@@ -295,7 +311,7 @@
   </div>
 
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-  <script type="module" src="/holdyourground/game.js?v=4"></script>
+  <script type="module" src="/holdyourground/game.js?v=5"></script>
   <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Teko:wght@700&family=Rajdhani:wght@700&display=swap" rel="stylesheet">
 </body>
 </html>
