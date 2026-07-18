@@ -2,13 +2,57 @@ import { state } from './state.js';
 import { loadSounds } from './audio.js';
 import { MOB_TYPES } from './game-data.js';
 
-export function loadImage(src) {
+function loadImageOnce(src) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
     img.onerror = reject;
     img.src = src;
   });
+}
+
+// Same cold-start problem as fetchJsonWithRetry above, but for the sprite
+// sheet PNGs: a single failed image load used to reject the whole
+// Promise.all in loadGameAssets(), which aborted game entry entirely on the
+// first request after the fly.io machine had been asleep.
+export async function loadImage(src, attempts = 3) {
+  let lastErr = null;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await loadImageOnce(i === 0 ? src : src + (src.includes('?') ? '&' : '?') + '_r=' + i);
+    } catch (e) {
+      lastErr = e;
+      if (i < attempts - 1) await delay(300 * (i + 1));
+    }
+  }
+  throw lastErr;
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Retries transient failures (e.g. the fly.io machine still cold-starting on
+// the very first request after a period of inactivity) instead of silently
+// resolving to null after a single failed attempt. A single swallowed
+// failure here used to mean a whole sprite sheet's frame data (HUD, cards,
+// items, ...) went permanently null for the rest of the session, which is
+// what caused the HUD/master-chest glitches reported 2026-07-17 — the
+// previous `.catch(() => null)` made the load "succeed" without ever
+// telling anyone a fetch actually failed. Logs to console on final failure
+// so this is visible instead of silently degrading.
+async function fetchJsonWithRetry(url, attempts = 3) {
+  let lastErr = null;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`HTTP ${r.status} for ${url}`);
+      return await r.json();
+    } catch (e) {
+      lastErr = e;
+      if (i < attempts - 1) await delay(300 * (i + 1));
+    }
+  }
+  console.error('[HYG] failed to load', url, '-', lastErr);
+  return null;
 }
 
 function preRenderMiniIcons() {
@@ -44,8 +88,8 @@ function preRenderMiniIcons() {
 }
 
 async function loadGameAssets() {
-  const _v = 'v=8';
-  const json = (url) => fetch(url + '?' + _v).then(r => r.json()).catch(() => null);
+  const _v = 'v=9';
+  const json = (url) => fetchJsonWithRetry(url + '?' + _v);
   const [sheet, meta, kSheet, kMeta, hSheet, hMeta, layout, mSheet, mMeta, cSheet, cMeta, kwSheet, kwMeta, rSheet, rMeta, nSheet, nMeta, iSheet, iMeta] = await Promise.all([
     loadImage('/images/spritesheet.png?' + _v),
     json('/images/spritesheet.json'),
