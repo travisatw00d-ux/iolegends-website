@@ -3,9 +3,9 @@ import { PlayerFigure, ZombieFigure } from "./Figures";
 
 const MECHANICS = [
   {
-    title: "Last circle standing",
+    title: "Day & Night Loop",
     description:
-      "Up to 10 players spawn into a 3200×2400 arena as colored circles. Run into someone and physics shoves them — knock a rival's HP to zero and they're eliminated. Be the last circle left to win.",
+      "Prepare during the day — equip loot, swap builds, store gear in the Master Chest. When night falls, over 100 enemies flood the arena. Survive the wave, and a 10-second results screen shows your kills before the next day begins.",
     icon: (
       <path
         d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 0v18M3 12h18"
@@ -16,9 +16,9 @@ const MECHANICS = [
     ),
   },
   {
-    title: "Wooden sword combat",
+    title: "Knight Combat",
     description:
-      "Your only weapon is a wooden sword. Swing to deal damage and knockback along the blade, shoving enemies into the horde or off the fight. Base swing deals 5 damage on an 800ms cooldown — the sword swings faster.",
+      "Fight as a knight with a sword and free hands. Toggle between Jab (fast poke, triple-combo) and Swing (wide arc, 4-hit chain with a 360° spin finisher). Drop your weapon and punch bare-fisted. Every swing deals damage and knockback along the blade.",
     icon: (
       <path
         d="M14.5 3.5 20 9 9 20l-5.5-5.5L14.5 3.5ZM3 21l3-1 1-3"
@@ -30,9 +30,9 @@ const MECHANICS = [
     ),
   },
   {
-    title: "The merging horde",
+    title: "The Merging Horde",
     description:
-      "100 zombies roam the arena and chase the nearest target. When two collide they merge into a higher-level zombie — combining their level and health into something tougher. Strays even call others over to merge.",
+      "Zombies chase the nearest player and merge on contact, combining their level and health into bigger threats (max Lv5). Trolls hit harder with more HP. Goblins are fast and aggressive. The longer you survive, the nastier the horde gets.",
     icon: (
       <path
         d="M7 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm10 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm-5 7a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Zm-6 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm12 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM9 9l1.5 3M15 9l-1.5 3M12 14v3"
@@ -44,9 +44,9 @@ const MECHANICS = [
     ),
   },
   {
-    title: "Top killer wears gold",
+    title: "Loot, Rarities & Gear",
     description:
-      "Every sword kill and zombie kill counts toward your score. The player with the most kills gets a gold ring around their circle for everyone to see — and the live leaderboard tracks HP, kills, and rank in real time.",
+      "Zombie kills drop loot bags and gold coins. Gear rolls across 7 rarity tiers — from Common to Ungodly — each with stacked attributes like Attack Damage, Armor, Speed, Luck, and Health Regen. Equip weapons, armor, rings, necklaces, and helmets. Your Master Chest at the map center keeps items permanently across matches.",
     icon: (
       <path
         d="M8 21h8M12 17v4M5 4h14v5a7 7 0 0 1-14 0V4ZM9 13l1.5 1.5L13 11"
@@ -73,12 +73,13 @@ export default function HowItPlays() {
             How it plays
           </span>
           <h2 className="max-w-2xl text-4xl font-extrabold leading-tight tracking-tight text-text sm:text-5xl">
-            Survive the circle. Survive the horde.
+            Prepare. Fight. Loot. Survive.
           </h2>
           <p className="max-w-2xl text-lg leading-relaxed text-text-muted">
-            Hold Your Ground mixes top-down sumo brawling with a PvE zombie
-            threat. You fight players and AI in the same arena — every swing,
-            shove, and merge changes the match.
+            Hold Your Ground is a cooperative zombie survival IO game. You and
+            up to 9 other knights prepare during the day, then face waves of
+            enemies at night. Every kill drops loot, every wave earns
+            progression, and the horde never stops growing.
           </p>
         </Reveal>
 
@@ -106,11 +107,11 @@ export default function HowItPlays() {
           <div className="mt-12 grid grid-cols-1 items-stretch gap-6 lg:grid-cols-3">
             <div className="relative flex flex-col items-center justify-center gap-3 rounded-3xl border border-border/70 bg-bg-elevated/60 p-8">
               <span className="font-mono text-xs uppercase tracking-wider text-text-dim">
-                You
+                Knight · You
               </span>
               <PlayerFigure color="#4ECDC4" size={110} swordRotation={-30} />
               <p className="text-center text-sm text-text-muted">
-                Armed circle. 100 HP, wooden sword, mouse-aimed swings.
+                Armed knight. 100 HP, jab or swing combat, punch bare-handed without a weapon.
               </p>
             </div>
 
@@ -121,18 +122,18 @@ export default function HowItPlays() {
               </span>
               <ZombieFigure tier={1} />
               <p className="text-center text-sm text-text-muted">
-                Chases the nearest target. Merges on contact into higher levels.
+                Chases nearest player. Merges on contact into higher levels (max Lv5).
               </p>
             </div>
 
             <div className="relative flex flex-col items-center justify-center gap-3 rounded-3xl border border-danger/50 bg-bg-elevated/60 p-8">
               <div className="absolute inset-x-0 top-0 mx-auto h-px w-2/3 bg-gradient-to-r from-transparent via-danger/70 to-transparent" />
               <span className="font-mono text-xs uppercase tracking-wider text-danger-bright">
-                T2 Zombie · Lv 6+
+                Troll · Lv 5+
               </span>
               <ZombieFigure tier={2} />
               <p className="text-center text-sm text-text-muted">
-                Bigger, heavier, more HP. The merged horde&apos;s final form.
+                Bigger, tougher, more HP. Unlocks at server level 5 alongside fast goblins.
               </p>
             </div>
           </div>

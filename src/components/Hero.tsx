@@ -23,7 +23,7 @@ export default function Hero() {
               <span className="absolute inline-flex h-full w-full animate-pulse-ring rounded-full bg-brand" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-brand" />
             </span>
-            Upcoming Game from IOLegends
+            Now Live from IOLegends
           </span>
 
           <h1
@@ -41,17 +41,17 @@ export default function Hero() {
             className="mt-5 animate-fade-up font-mono text-base uppercase tracking-[0.2em] text-accent-bright"
             style={{ animationDelay: "140ms" }}
           >
-            Last circle standing wins.
+            Survive the horde. Loot the night.
           </p>
 
           <p
             className="mt-5 max-w-md animate-fade-up text-lg leading-relaxed text-text-muted"
             style={{ animationDelay: "200ms" }}
           >
-            A real-time multiplayer arena brawler. Up to 10 players drop in as
-            armed circles, swing wooden swords for damage and knockback, and
-            survive a horde of 100 zombies that merge into bigger, deadlier
-            forms. Hold your ground — or get shoved out.
+            A real-time multiplayer zombie survival IO game. Up to 10 knights
+            prepare during the day, then fight waves of zombies, trolls, and
+            goblins at night. Loot gear across 7 rarity tiers, upgrade your
+            build, and hold your ground against the merging horde.
           </p>
 
           <div
@@ -80,9 +80,9 @@ export default function Hero() {
             style={{ animationDelay: "320ms" }}
           >
             {[
-              { v: "10", l: "Players / match" },
-              { v: "100", l: "Zombies in arena" },
-              { v: "1", l: "Circle left standing" },
+              { v: "10", l: "Knights per match" },
+              { v: "100+", l: "Enemies in arena" },
+              { v: "7", l: "Loot rarity tiers" },
             ].map((s) => (
               <div key={s.l}>
                 <dt className="font-mono text-2xl font-bold text-text sm:text-3xl">{s.v}</dt>
@@ -113,7 +113,7 @@ function ArenaScene() {
             <span className="h-2.5 w-2.5 rounded-full bg-brand/80" />
           </div>
           <span className="font-mono text-xs uppercase tracking-widest text-text-dim">
-            hold-your-ground.live
+            NIGHT · WAVE 3
           </span>
           <span className="font-mono text-xs text-brand">● LIVE</span>
         </div>
@@ -142,7 +142,7 @@ function ArenaScene() {
           </div>
 
           <div className="absolute right-[10%] top-[14%] flex flex-col items-center opacity-90">
-            <span className="mb-1 font-mono text-[10px] font-semibold text-danger-bright">zombie lvl 7</span>
+            <span className="mb-1 font-mono text-[10px] font-semibold text-danger-bright">troll lvl 5</span>
             <HealthBar pct={0.8} tone="red" width={48} />
             <div className="mt-1 origin-center scale-[0.62]">
               <ZombieFigure tier={2} />
@@ -162,7 +162,7 @@ function ArenaScene() {
           {[
             { l: "HP", v: "87/100" },
             { l: "Kills", v: "3" },
-            { l: "Horde", v: "100" },
+            { l: "Horde", v: "100+" },
           ].map((h) => (
             <div key={h.l} className="bg-bg-elevated px-3 py-3">
               <div className="font-mono text-base font-bold text-text">{h.v}</div>
@@ -173,10 +173,10 @@ function ArenaScene() {
       </div>
 
       <div className="absolute -right-3 -top-3 hidden rotate-6 rounded-xl border border-accent/50 bg-bg-elevated/90 px-3 py-2 shadow-glow backdrop-blur sm:block animate-float-slow">
-        <div className="font-mono text-[10px] uppercase tracking-wider text-text-dim">Top killer</div>
+        <div className="font-mono text-[10px] uppercase tracking-wider text-text-dim">Legendary</div>
         <div className="flex items-center gap-1.5 font-mono text-base font-bold text-accent-bright">
-          <span className="h-2.5 w-2.5 rounded-full bg-[#4ECDC4] ring-2 ring-accent" />
-          you
+          <span className="h-2.5 w-2.5 rounded-full bg-[#f97316] ring-2 ring-accent" />
+          T1 Ring
         </div>
       </div>
     </div>

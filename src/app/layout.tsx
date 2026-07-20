@@ -15,21 +15,22 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Hold Your Ground — IOLegends",
   description:
-    "Hold Your Ground is an upcoming multiplayer arena brawler from IOLegends. Up to 10 armed circles fight with wooden swords while a horde of 100 merging zombies closes in. Last circle standing wins.",
+    "Hold Your Ground is a multiplayer zombie survival IO game. Up to 10 knights prepare during the day and fight waves of zombies, trolls, and goblins at night. Loot gear, upgrade your build, and hold your ground.",
   keywords: [
     "Hold Your Ground",
     "IOLegends",
-    "multiplayer arena game",
+    "multiplayer zombie survival",
     "browser game",
     "io game",
-    "zombie survival",
-    "battle royale",
+    "knight",
+    "loot",
+    "wave survival",
   ],
   authors: [{ name: "IOLegends" }],
   openGraph: {
     title: "Hold Your Ground — IOLegends",
     description:
-      "Upcoming multiplayer arena brawler. Fight with a wooden sword, survive a merging zombie horde, and be the last circle standing.",
+      "A multiplayer zombie survival IO game. Prepare during the day, fight merging zombie hordes at night, loot gear across 7 rarities, and hold your ground.",
     type: "website",
     siteName: "IOLegends",
   },
@@ -37,7 +38,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Hold Your Ground — IOLegends",
     description:
-      "Upcoming multiplayer arena brawler. Fight with a wooden sword, survive a merging zombie horde, and be the last circle standing.",
+      "A multiplayer zombie survival IO game. Prepare during the day, fight merging zombie hordes at night, loot gear across 7 rarities, and hold your ground.",
   },
 };
 

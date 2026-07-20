@@ -3,15 +3,33 @@ import Reveal from "./Reveal";
 import { ZombieFigure } from "./Figures";
 
 const T1_PARTS = [
-  { src: "/sprites/zombiehead.png", label: "Head", w: 637, h: 686 },
-  { src: "/sprites/zombielefthand.png", label: "Left hand", w: 295, h: 360 },
-  { src: "/sprites/zombierighthand.png", label: "Right hand", w: 302, h: 370 },
+  { src: "/sprites/zombiehead.png", label: "Zombie Head", w: 637, h: 686 },
+  { src: "/sprites/zombielefthand.png", label: "Zombie Left Hand", w: 295, h: 360 },
+  { src: "/sprites/zombierighthand.png", label: "Zombie Right Hand", w: 302, h: 370 },
 ];
 
 const T2_PARTS = [
-  { src: "/sprites/T2zombiehead.png", label: "T2 Head", w: 766, h: 708 },
-  { src: "/sprites/T2zombielefthand.png", label: "T2 Left hand", w: 294, h: 366 },
-  { src: "/sprites/T2zombierighthand.png", label: "T2 Right hand", w: 293, h: 366 },
+  { src: "/sprites/T2zombiehead.png", label: "Troll Head", w: 766, h: 708 },
+  { src: "/sprites/T2zombielefthand.png", label: "Troll Left Hand", w: 294, h: 366 },
+  { src: "/sprites/T2zombierighthand.png", label: "Troll Right Hand", w: 293, h: 366 },
+];
+
+const RARITIES = [
+  { name: "Common", color: "#ffffff", attrs: "1 attribute", weight: "50%" },
+  { name: "Uncommon", color: "#22c55e", attrs: "2 attributes", weight: "30%" },
+  { name: "Rare", color: "#3b82f6", attrs: "3 attributes", weight: "10%" },
+  { name: "Epic", color: "#a855f7", attrs: "4 attributes", weight: "5%" },
+  { name: "Legendary", color: "#f97316", attrs: "5 attributes", weight: "3%" },
+  { name: "Mythic", color: "#ef4444", attrs: "6 attributes", weight: "1%" },
+  { name: "Ungodly", color: "#ffd700", attrs: "7 attributes", weight: "0.5%" },
+];
+
+const EQUIP_SLOTS = [
+  { name: "Weapon", icon: "sword" },
+  { name: "Armor", icon: "shield" },
+  { name: "Helmet", icon: "helmet" },
+  { name: "Ring", icon: "ring" },
+  { name: "Necklace", icon: "necklace" },
 ];
 
 export default function Horde() {
@@ -29,13 +47,14 @@ export default function Horde() {
             The Horde
           </span>
           <h2 className="max-w-2xl text-4xl font-extrabold leading-tight tracking-tight text-text sm:text-5xl">
-            100 zombies. They get bigger.
+            Three enemies. They get nastier.
           </h2>
           <p className="max-w-2xl text-lg leading-relaxed text-text-muted">
-            Every zombie in Hold Your Ground is drawn from the same three sprite
-            pieces — a head and two hands — rotated and scaled in real time.
-            When two zombies meet, they merge into a single higher-level zombie;
-            at level 6 and up they mutate into the heavier T2 form.
+            Every enemy in Hold Your Ground is built from the same three sprite
+            pieces — a head and two hands — rotated and animated in real time.
+            Zombies merge on contact. Trolls are big and tanky. Goblins are
+            fast and relentless. The longer the match runs, the tougher the
+            horde gets.
           </p>
         </Reveal>
 
@@ -68,9 +87,9 @@ export default function Horde() {
               </div>
             </div>
             <p className="max-w-xl text-center text-sm text-text-muted">
-              Levels add together, health combines, and at level 6+ the zombie
-              swaps to its bigger T2 art. The longer the match runs, the nastier
-              the horde gets.
+              Zombie levels add together, health combines, and at level 6+ the
+              form becomes much tougher. Trolls unlock at server level 5, and
+              goblins at level 10 — each with their own stats and behavior.
             </p>
           </div>
         </Reveal>
@@ -79,7 +98,7 @@ export default function Horde() {
           <div className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
             <div className="rounded-3xl border border-border/70 bg-bg-elevated/50 p-6 sm:p-7">
               <h3 className="font-mono text-xs uppercase tracking-wider text-text-dim">
-                Zombie · T1 (Lv 1–5)
+                Zombie · Lv 1–5
               </h3>
               <div className="mt-4 grid grid-cols-3 gap-3">
                 {T1_PARTS.map((p) => (
@@ -90,7 +109,7 @@ export default function Horde() {
 
             <div className="rounded-3xl border border-danger/30 bg-bg-elevated/50 p-6 sm:p-7">
               <h3 className="font-mono text-xs uppercase tracking-wider text-danger-bright">
-                Zombie · T2 (Lv 6+)
+                Troll · Lv 5+ (Server Level)
               </h3>
               <div className="mt-4 grid grid-cols-3 gap-3">
                 {T2_PARTS.map((p) => (
@@ -101,6 +120,46 @@ export default function Horde() {
           </div>
         </Reveal>
 
+        {/* Loot Rarity Table */}
+        <Reveal delay={160}>
+          <div className="mt-10 rounded-3xl border border-border/70 bg-bg-elevated/50 p-6 sm:p-8">
+            <h3 className="text-2xl font-bold tracking-tight text-text">
+              7 Rarity Tiers
+            </h3>
+            <p className="mt-2 text-sm leading-relaxed text-text-muted">
+              Every piece of loot rolls a rarity — the rarer the drop, the more
+              attributes it gets. Rare and above guarantee a stacked attribute
+              (double or triple), boosting a single stat with multiple
+              independent rolls. Higher Luck means better odds.
+            </p>
+            <div className="mt-6 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {RARITIES.map((r) => (
+                <div
+                  key={r.name}
+                  className="flex items-center gap-3 rounded-xl border border-border/60 bg-bg/40 px-4 py-3"
+                >
+                  <span
+                    className="h-3 w-3 shrink-0 rounded-full"
+                    style={{ backgroundColor: r.color, boxShadow: `0 0 8px ${r.color}55` }}
+                  />
+                  <div className="min-w-0">
+                    <div
+                      className="text-sm font-bold leading-tight"
+                      style={{ color: r.color }}
+                    >
+                      {r.name}
+                    </div>
+                    <div className="text-[10px] text-text-dim leading-tight">
+                      {r.attrs} · {r.weight}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Reveal>
+
+        {/* Equipment + Currency */}
         <Reveal delay={180}>
           <div className="mt-10 grid grid-cols-1 items-center gap-8 rounded-3xl border border-brand/30 bg-gradient-to-br from-surface to-bg-elevated p-8 sm:p-10 lg:grid-cols-[0.9fr_1.1fr]">
             <div className="flex items-center justify-center">
@@ -118,18 +177,35 @@ export default function Horde() {
             </div>
             <div>
               <h3 className="text-2xl font-bold tracking-tight text-text">
-                The Wooden Sword
+                Gear & Progression
               </h3>
               <p className="mt-3 text-base leading-relaxed text-text-muted">
-                Your one and only weapon. A simple wooden blade you swing with
-                the mouse — its hitbox runs from hilt to tip, so positioning
-                matters as much as timing.
+                Equip 5 slots — weapon, armor, helmet, ring, and necklace —
+                each rolling attributes like Attack Damage, Armor, Speed, Max
+                Health, Health Regen, Fortune, and Luck. Kill zombies to earn
+                XP and level up, spending stat points across three build types.
+                Gold coins drop alongside loot bags, filling your
+                bronze/silver/gold wallet.
               </p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {EQUIP_SLOTS.map((s) => (
+                  <span
+                    key={s.name}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border/70 bg-bg-elevated/60 px-3 py-1.5 text-xs font-medium text-text-muted"
+                  >
+                    <span className="h-2 w-2 rounded-full bg-brand/60" />
+                    {s.name}
+                  </span>
+                ))}
+                <span className="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent-bright">
+                  Master Chest (permanent)
+                </span>
+              </div>
               <ul className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {[
-                  { stat: "+5", label: "Attack damage" },
-                  { stat: "−200ms", label: "Attack speed (faster)" },
-                  { stat: "800ms", label: "Base swing cooldown" },
+                  { stat: "14", label: "Rollable attributes" },
+                  { stat: "16+16", label: "Bag + Chest slots" },
+                  { stat: "3", label: "Build types" },
                 ].map((s) => (
                   <li
                     key={s.label}

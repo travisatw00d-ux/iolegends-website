@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 const NAV_LINKS = [
   { label: "How it plays", href: "#how" },
-  { label: "The Horde", href: "#horde" },
+  { label: "Enemies & Loot", href: "#horde" },
   { label: "Play Now", href: "/holdyourground" },
 ];
 

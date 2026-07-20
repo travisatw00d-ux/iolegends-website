@@ -1,7 +1,7 @@
 const LINKS = [
   { label: "How it plays", href: "#how" },
-  { label: "The Horde", href: "#horde" },
-  { label: "Join the playtest", href: "#playtest" },
+  { label: "Enemies & Loot", href: "#horde" },
+  { label: "Play Now", href: "/holdyourground" },
 ];
 
 export default function Footer() {
@@ -24,8 +24,9 @@ export default function Footer() {
               </span>
             </a>
             <p className="mt-4 text-sm leading-relaxed text-text-muted">
-              Hold Your Ground — a multiplayer arena brawler where the last
-              circle standing wins. Currently in development.
+              Hold Your Ground — a multiplayer zombie survival IO game. Prepare
+              during the day, fight the horde at night, loot gear, and hold your
+              ground. Now live and playable in your browser.
             </p>
             <a
               href="mailto:info@iolegends.com"
@@ -60,7 +61,7 @@ export default function Footer() {
             &copy; {new Date().getFullYear()} IOLegends. All rights reserved.
           </p>
           <p className="font-mono text-xs text-text-dim">
-            Hold Your Ground · in development
+            Hold Your Ground · now live
           </p>
         </div>
       </div>

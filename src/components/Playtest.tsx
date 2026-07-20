@@ -1,5 +1,4 @@
 import Reveal from "./Reveal";
-import NotifyForm from "./NotifyForm";
 
 export default function Playtest() {
   return (
@@ -17,21 +16,41 @@ export default function Playtest() {
             />
 
             <span className="inline-flex items-center gap-2 rounded-full border border-brand/30 bg-brand/10 px-3.5 py-1.5 font-mono text-xs font-medium uppercase tracking-[0.18em] text-brand">
-              In Development
+              Now Live
             </span>
             <h2 className="mt-5 text-3xl font-extrabold tracking-tight text-text sm:text-4xl">
-              Join the Hold Your Ground playtest
+              Jump into the arena
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-text-muted">
-              Be first in the arena when matches open. Drop your email to get
-              playtest invites and launch updates — no spam, just beta keys and
-              dates.
+              Hold Your Ground is live and playable right now in your browser.
+              No download, no install — just drop in, pick up a sword, and
+              start swinging. Play as a guest or create an account to save
+              your gear and currency across matches.
             </p>
 
             <div className="mx-auto mt-8 max-w-md">
-              <NotifyForm />
+              <a
+                href="/holdyourground"
+                className="group inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-6 py-3.5 text-base font-bold text-black transition-all hover:shadow-glow-lg hover:bg-brand-bright"
+              >
+                Play Now
+                <svg
+                  className="h-4 w-4 transition-transform group-hover:translate-x-1"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M3 8h10M9 4l4 4-4 4"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </a>
               <p className="mt-4 text-xs text-text-dim">
-                Prefer email? Reach us anytime at{" "}
+                Questions or feedback? Reach us at{" "}
                 <a
                   href="mailto:info@iolegends.com"
                   className="font-medium text-brand underline-offset-2 hover:underline"
