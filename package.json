@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sync:nutfall": "node scripts/sync-game.mjs Nutfall nutfall",
+    "sync:scramble": "node scripts/sync-game.mjs Scramble scramble",
+    "sync:knot": "node scripts/sync-knot.mjs"
   },
   "dependencies": {
     "next": "16.2.9",

@@ -1,8 +1,7 @@
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
-import HowItPlays from "@/components/HowItPlays";
-import Horde from "@/components/Horde";
-import Playtest from "@/components/Playtest";
+import Games from "@/components/Games";
+import HowItWorks from "@/components/HowItWorks";
 import Footer from "@/components/Footer";
 
 export default function Home() {
@@ -11,9 +10,8 @@ export default function Home() {
       <Navbar />
       <main className="flex flex-col">
         <Hero />
-        <HowItPlays />
-        <Horde />
-        <Playtest />
+        <Games />
+        <HowItWorks />
       </main>
       <Footer />
     </>

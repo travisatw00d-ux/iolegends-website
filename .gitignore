@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# wrangler's local cache
+.wrangler/
+
+# Synced in by deploy.bat from the games' own projects (npm run sync:*), not edited here
+/public/nutfall/
+/public/scramble/
+/public/knotquitethere/*.zip

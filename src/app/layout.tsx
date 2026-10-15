@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,33 +12,33 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const display = Bricolage_Grotesque({
+  variable: "--font-bricolage",
+  subsets: ["latin"],
+  weight: ["600", "700", "800"],
+});
+
+const description =
+  "IOLegends makes small browser games for playing with your friends. Nothing to install: open a link and play.";
+
 export const metadata: Metadata = {
-  title: "Hold Your Ground — IOLegends",
-  description:
-    "Hold Your Ground is a multiplayer zombie survival IO game. Up to 10 knights prepare during the day and fight waves of zombies, trolls, and goblins at night. Loot gear, upgrade your build, and hold your ground.",
-  keywords: [
-    "Hold Your Ground",
-    "IOLegends",
-    "multiplayer zombie survival",
-    "browser game",
-    "io game",
-    "knight",
-    "loot",
-    "wave survival",
-  ],
+  metadataBase: new URL("https://iolegends.com"),
+  title: "IOLegends — games to play with your friends",
+  description,
+  keywords: ["IOLegends", "browser games", "co-op games", "play with friends", "Nutfall", "io games"],
   authors: [{ name: "IOLegends" }],
   openGraph: {
-    title: "Hold Your Ground — IOLegends",
-    description:
-      "A multiplayer zombie survival IO game. Prepare during the day, fight merging zombie hordes at night, loot gear across 7 rarities, and hold your ground.",
+    title: "IOLegends — games to play with your friends",
+    description,
     type: "website",
     siteName: "IOLegends",
+    images: ["/covers/nutfall.png"],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Hold Your Ground — IOLegends",
-    description:
-      "A multiplayer zombie survival IO game. Prepare during the day, fight merging zombie hordes at night, loot gear across 7 rarities, and hold your ground.",
+    title: "IOLegends — games to play with your friends",
+    description,
+    images: ["/covers/nutfall.png"],
   },
 };
 
@@ -51,9 +51,9 @@ export default function RootLayout({
     <html
       lang="en"
       data-scroll-behavior="smooth"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${display.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-bg text-text font-sans selection:bg-brand selection:text-black">
+      <body className="min-h-full text-text font-sans selection:bg-brand selection:text-black">
         {children}
       </body>
     </html>

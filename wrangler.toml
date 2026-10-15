@@ -2,7 +2,19 @@
 name = "iolegends-website"
 compatibility_date = "2026-06-18"
 workers_dev = false
+# The static site, plus a small multiplayer relay at /net/room/<code> (see worker/index.js).
+main = "worker/index.js"
 
 [assets]
 directory = "./out"
+binding = "ASSETS"
 not_found_handling = "404-page"
+run_worker_first = ["/net/*"]
+
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "Room"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room"]

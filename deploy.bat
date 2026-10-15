@@ -19,6 +19,29 @@ if "%CLOUDFLARE_API_TOKEN%"=="" (
     exit /b 1
 )
 
+:: Pull in the latest build of each game that lives in its own project folder.
+if exist "..\Nutfall\package.json" (
+    echo Syncing Nutfall...
+    call npm run sync:nutfall
+    if !errorlevel! neq 0 goto syncfail
+)
+if exist "..\Scramble\package.json" (
+    echo Syncing Scramble...
+    call npm run sync:scramble
+    if !errorlevel! neq 0 goto syncfail
+)
+if exist "..\Scramble\desktop\dist\version.txt" (
+    echo Syncing Knot Quite There download...
+    call npm run sync:knot
+    if !errorlevel! neq 0 goto syncfail
+)
+goto synced
+:syncfail
+echo Game sync failed!
+pause
+exit /b 1
+:synced
+
 echo Building Next.js...
 call npm run build
 if %errorlevel% neq 0 (
