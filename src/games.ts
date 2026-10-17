@@ -39,4 +39,16 @@ export const GAMES: Game[] = [
     players: "Solo for now · co-op for up to 10 coming",
     tags: ["3D", "Physics", "Platformer"],
   },
+  {
+    slug: "siegebreak",
+    title: "Siege Break",
+    tagline: "Wall in your keep, smash theirs, patch the holes before time runs out.",
+    description:
+      "A tribute to arcade Rampart. Pick a keep and a timber palisade goes up around it. Set down catapults, lob stones at your friends' walls for 20 seconds, then race the clock to patch the gaps with falling-block pieces. Close the loop or you're conquered. Host a lobby and send a 5-letter friend code; bots fill empty seats.",
+    href: "/siegebreak/",
+    cover: "/covers/siegebreak.png",
+    status: "Playable demo",
+    players: "2–9 players with a friend code · bots",
+    tags: ["2D", "Strategy", "Multiplayer"],
+  },
 ];

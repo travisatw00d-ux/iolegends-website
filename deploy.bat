@@ -30,6 +30,11 @@ if exist "..\Scramble\package.json" (
     call npm run sync:scramble
     if !errorlevel! neq 0 goto syncfail
 )
+if exist "..\Rampart\package.json" (
+    echo Syncing Siege Break...
+    call npm run sync:siegebreak
+    if !errorlevel! neq 0 goto syncfail
+)
 if exist "..\Scramble\desktop\dist\version.txt" (
     echo Syncing Knot Quite There download...
     call npm run sync:knot

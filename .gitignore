@@ -46,4 +46,5 @@ next-env.d.ts
 # Synced in by deploy.bat from the games' own projects (npm run sync:*), not edited here
 /public/nutfall/
 /public/scramble/
+/public/siegebreak/
 /public/knotquitethere/*.zip

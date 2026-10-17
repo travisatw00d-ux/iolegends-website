@@ -4,11 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/check-games.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "sync:nutfall": "node scripts/sync-game.mjs Nutfall nutfall",
     "sync:scramble": "node scripts/sync-game.mjs Scramble scramble",
+    "sync:siegebreak": "node scripts/sync-game.mjs Rampart siegebreak",
     "sync:knot": "node scripts/sync-knot.mjs"
   },
   "dependencies": {
